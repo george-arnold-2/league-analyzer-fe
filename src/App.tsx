@@ -1,5 +1,5 @@
 // import statements get components from other files and the useState hook from react
-import LeagueInput from './LeagueInput';
+import LeagueInput from './components/LeagueInput/LeagueInput';
 import Schedule from './Schedule';
 import React, { useState } from 'react';
 
