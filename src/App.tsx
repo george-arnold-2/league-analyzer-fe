@@ -1,6 +1,7 @@
 // import statements get components from other files and the useState hook from react
 import LeagueInput from './components/LeagueInput/LeagueInput';
-import Schedule from './Schedule';
+import Schedule from './components/Schedule/Schedule';
+import Roster from './components/Roster/Roster';
 import React, { useState } from 'react';
 
 export default function App(): React.JSX.Element {
@@ -10,7 +11,7 @@ export default function App(): React.JSX.Element {
     return (
         <div className="app">
             <h1>Sleeper League Search</h1>
-
+            <p>For testing purposes use 1259966529118674944</p>
             {/* Pass a callback to LeagueInput so it can set leagueId in App */}
             <LeagueInput onLeagueSelect={(id) => setLeagueId(id)} />
 
@@ -28,6 +29,7 @@ export default function App(): React.JSX.Element {
             </div>
 
             {leagueId && <Schedule leagueId={leagueId} week={week} />}
+            {leagueId && <Roster leagueId={leagueId} />}
         </div>
     );
 }

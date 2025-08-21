@@ -29,13 +29,14 @@ export default function LeagueInput({
         setLeagueData(null);
 
         try {
-            const res = await fetch(
+            const leagueRes = await fetch(
                 `https://api.sleeper.app/v1/league/${leagueId}`
             );
-            if (!res.ok) throw new Error('League not found');
-            const data = (await res.json()) as LeagueData;
-            setLeagueData(data);
-            onLeagueSelect(leagueId); // Notify parent
+            if (!leagueRes.ok) throw new Error('League not found');
+            const leagueFetchData = (await leagueRes.json()) as LeagueData;
+            setLeagueData(leagueFetchData);
+
+            onLeagueSelect(leagueId);
         } catch (err) {
             if (err instanceof Error) {
                 setError(err.message);
