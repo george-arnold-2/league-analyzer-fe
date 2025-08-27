@@ -7,18 +7,29 @@ interface RosterData {
 interface RosterProps {
     leagueId: string;
 }
+interface PlayerInfo {
+    full_name: string;
+    fantasy_data_id: string;
+}
 // interface PlayerMinimal {
 //     player_id: string;
 //     full_name: string;
+
 // }
 export default function Roster({ leagueId }: RosterProps): JSX.Element {
     const [rosterData, setRosterData] = useState<RosterData[] | null>(null);
     // const [playerData, setPlayerData] = useState<PlayerMinimal[]>([]);
 
-    const playerLookup: Record<string, string> = {};
+    const playerLookup: Record<string, PlayerInfo> = {};
     Object.values(players).forEach((player) => {
-        playerLookup[player.player_id] = player.player_fullname;
+        // console.log(player);
+        playerLookup[player.player_id] = {
+            full_name: player.full_name,
+            fantasy_data_id: player.fantasy_data_id,
+        };
     });
+
+    console.log(playerLookup, 'p lookup');
     useEffect(() => {
         const fetchRoster = async (): Promise<void> => {
             try {
@@ -29,7 +40,6 @@ export default function Roster({ leagueId }: RosterProps): JSX.Element {
                 const rosterFetchData =
                     (await rosterRes.json()) as RosterData[];
                 setRosterData(rosterFetchData);
-                console.log(rosterFetchData);
             } catch {
                 console.log('error');
             }
@@ -37,7 +47,35 @@ export default function Roster({ leagueId }: RosterProps): JSX.Element {
         fetchRoster();
     }, [leagueId]);
     useEffect(() => {
-        console.log('rosterData updated:', rosterData);
+        const fetchPlayerFantasyData = async (): Promise<void> => {
+            try {
+                for (const playerId of rosterData) {
+                    const res = await fetch(
+                        `https://api.fantasydata.com/v3/nfl/stats/json/PlayerSeasonStatsByPlayerID/2025/${playerId}`,
+                        {
+                            headers: {
+                                'Ocp-Apim-Subscription-Key': YOUR_API_KEY, // FantasyData requires this
+                            },
+                        }
+                    );
+
+                    if (!res.ok) {
+                        throw new Error(
+                            `Error fetching player ${playerId}: ${res.status}`
+                        );
+                    }
+
+                    const data = await res.json();
+                    console.log('Player:', playerId, data);
+                }
+            } catch (err) {
+                console.error('Error fetching fantasy data:', err);
+            }
+        };
+
+        if (rosterData?.length) {
+            fetchPlayerFantasyData();
+        }
     }, [rosterData]);
     return (
         <div>
@@ -51,7 +89,7 @@ export default function Roster({ leagueId }: RosterProps): JSX.Element {
                             Players:{' '}
                             {roster.players
                                 // || id gives us a fallback if the playerLookup doesn't contain the id
-                                .map((id) => playerLookup[id] || id)
+                                .map((id) => playerLookup[id].full_name || id)
                                 .join(', ')}
                         </p>
                     </div>
