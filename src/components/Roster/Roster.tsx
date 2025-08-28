@@ -101,63 +101,123 @@ export default function Roster({
         fetchPlayerFantasyData();
     }, [rosterData]);
 
+    // Position color mapping
+    const getPositionColor = (position: string) => {
+        switch (position) {
+            case 'QB':
+                return 'bg-purple-100 text-purple-800';
+            case 'RB':
+                return 'bg-blue-100 text-blue-800';
+            case 'WR':
+                return 'bg-yellow-100 text-yellow-800';
+            case 'TE':
+                return 'bg-orange-100 text-orange-800';
+            case 'K':
+                return 'bg-pink-100 text-pink-800';
+            case 'DEF':
+                return 'bg-gray-100 text-gray-800';
+            default:
+                return 'bg-green-100 text-green-800';
+        }
+    };
+
     return (
-        <div>
-            {loading && <p>Loading fantasy data...</p>}
-            {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+        <div className="w-full">
+            {loading && (
+                <div className="flex items-center justify-center p-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                    <span className="ml-2 text-green-700">
+                        Loading fantasy data...
+                    </span>
+                </div>
+            )}
+
+            {error && (
+                <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                    <div className="flex">
+                        <div className="ml-3">
+                            <p className="text-sm text-red-700">
+                                Error: {error}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {rosterData &&
                 rosterData.map((roster, i) => {
-                    console.log(matchupRoster, i);
                     const matchupRosterNumber = Number(
                         matchupRoster.replace(/\D/g, '')
                     );
 
-                    if (i + 1 !== matchupRosterNumber) return null; // skip non-matching roster
+                    if (i + 1 !== matchupRosterNumber) return null;
 
                     return (
                         <div
                             key={roster.roster_id}
-                            style={{
-                                marginBottom: '20px',
-                                border: '1px solid #ccc',
-                                padding: '10px',
-                            }}
+                            className="bg-white rounded-lg shadow-md border border-green-200 overflow-hidden mb-4"
                         >
-                            <h4>Roster {i + 1}</h4>
-                            <div>
-                                {roster.players.map((playerId) => {
-                                    const fantasyPlayer =
-                                        fantasyPlayerLookup[String(playerId)];
+                            <div className="bg-gradient-to-r from-green-600 via-green-500 to-green-400 px-4 py-3">
+                                <h4 className="text-lg font-semibold text-white">
+                                    Roster {i + 1}
+                                </h4>
+                            </div>
 
-                                    return (
-                                        <div
-                                            key={playerId}
-                                            style={{ marginBottom: '5px' }}
-                                        >
-                                            <strong>
-                                                {fantasyPlayer?.Name ||
-                                                    `Defense (${playerId})`}
-                                            </strong>
-                                            {fantasyPlayer && (
-                                                <span
-                                                    style={{
-                                                        marginLeft: '10px',
-                                                        color: '#000',
-                                                    }}
-                                                >
-                                                    {fantasyPlayer.Position} -{' '}
-                                                    {(
-                                                        fantasyPlayer[
-                                                            'Projected Points'
-                                                        ] / 17
-                                                    ).toFixed(2)}{' '}
-                                                    pts
-                                                </span>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                            <div className="p-4">
+                                <div className="space-y-3">
+                                    {roster.players.map((playerId) => {
+                                        const fantasyPlayer =
+                                            fantasyPlayerLookup[
+                                                String(playerId)
+                                            ];
+                                        const projectedPoints = fantasyPlayer
+                                            ? (
+                                                  fantasyPlayer[
+                                                      'Projected Points'
+                                                  ] / 17
+                                              ).toFixed(2)
+                                            : '0.00';
+
+                                        return (
+                                            <div
+                                                key={playerId}
+                                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="flex-shrink-0">
+                                                        {fantasyPlayer ? (
+                                                            <span
+                                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPositionColor(
+                                                                    fantasyPlayer.Position
+                                                                )}`}
+                                                            >
+                                                                {
+                                                                    fantasyPlayer.Position
+                                                                }
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                                DEF
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-gray-900">
+                                                            {fantasyPlayer?.Name ||
+                                                                `Defense (${playerId})`}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-right">
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                                        {projectedPoints} pts
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     );
