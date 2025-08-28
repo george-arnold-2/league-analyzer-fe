@@ -59,10 +59,26 @@ export default function Schedule({
                 <p>No matchups found.</p>
             ) : (
                 <ul>
-                    {matchups.map((m, i) => (
-                        <li key={`${m.matchup_id}-${i}`}>
-                            Matchup {m.matchup_id} - Roster {m.roster_id} -
-                            Points: {m.points}
+                    {Object.values(
+                        matchups.reduce<
+                            Record<
+                                string,
+                                { rosters: string[]; points: number[] }
+                            >
+                        >((acc, m) => {
+                            if (!acc[m.matchup_id]) {
+                                acc[m.matchup_id] = { rosters: [], points: [] };
+                            }
+                            acc[m.matchup_id].rosters.push(
+                                `Roster ${m.roster_id}`
+                            );
+                            acc[m.matchup_id].points.push(m.points);
+                            return acc;
+                        }, {})
+                    ).map((matchup, i) => (
+                        <li key={i}>
+                            {matchup.rosters.join(' vs ')} - Points:{' '}
+                            {matchup.points.join(' / ')}
                         </li>
                     ))}
                 </ul>
