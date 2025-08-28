@@ -29,7 +29,7 @@ export default function App(): React.JSX.Element {
             </div>
 
             {leagueId && <Schedule leagueId={leagueId} week={week} />}
-            {leagueId && <Roster leagueId={leagueId} />}
+            {/* {leagueId && <Roster leagueId={leagueId} />} */}
         </div>
     );
 }

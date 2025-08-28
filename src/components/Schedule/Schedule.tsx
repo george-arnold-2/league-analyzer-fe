@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-
+import Roster from '../Roster/Roster';
 interface Matchup {
     matchup_id: number;
     roster_id: number;
@@ -58,7 +58,7 @@ export default function Schedule({
             {matchups.length === 0 ? (
                 <p>No matchups found.</p>
             ) : (
-                <ul>
+                <div>
                     {Object.values(
                         matchups.reduce<
                             Record<
@@ -76,12 +76,20 @@ export default function Schedule({
                             return acc;
                         }, {})
                     ).map((matchup, i) => (
-                        <li key={i}>
+                        <div key={i}>
                             {matchup.rosters.join(' vs ')} - Points:{' '}
+                            <Roster
+                                leagueId={leagueId}
+                                matchupRoster={matchup.rosters[0]}
+                            />
+                            <Roster
+                                leagueId={leagueId}
+                                matchupRoster={matchup.rosters[1]}
+                            />
                             {matchup.points.join(' / ')}
-                        </li>
+                        </div>
                     ))}
-                </ul>
+                </div>
             )}
         </div>
     );
