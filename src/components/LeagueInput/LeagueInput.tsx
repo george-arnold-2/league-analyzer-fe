@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface LeagueData {
     name: string;
@@ -8,15 +8,53 @@ interface LeagueData {
 
 interface LeagueInputProps {
     onLeagueSelect: (leagueId: string) => void;
+    initialLeagueId?: string;
 }
 
 export default function LeagueInput({
     onLeagueSelect,
-}: LeagueInputProps): JSX.Element {
-    const [leagueId, setLeagueId] = useState<string>('');
+    initialLeagueId,
+}: LeagueInputProps) {
+    const [leagueId, setLeagueId] = useState<string>(initialLeagueId || '');
     const [leagueData, setLeagueData] = useState<LeagueData | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
+
+    const fetchLeagueData = useCallback(
+        async (id: string): Promise<void> => {
+            setLoading(true);
+            setError('');
+            setLeagueData(null);
+
+            try {
+                const leagueRes = await fetch(
+                    `https://api.sleeper.app/v1/league/${id}`
+                );
+                if (!leagueRes.ok) throw new Error('League not found');
+                const leagueFetchData = (await leagueRes.json()) as LeagueData;
+                setLeagueData(leagueFetchData);
+
+                onLeagueSelect(id);
+            } catch (err) {
+                if (err instanceof Error) {
+                    setError(err.message);
+                } else {
+                    setError('Failed to fetch league data.');
+                }
+            } finally {
+                setLoading(false);
+            }
+        },
+        [onLeagueSelect]
+    );
+
+    // Auto-fetch league data when initialLeagueId is provided
+    useEffect(() => {
+        if (initialLeagueId && initialLeagueId !== leagueId) {
+            setLeagueId(initialLeagueId);
+            fetchLeagueData(initialLeagueId);
+        }
+    }, [initialLeagueId, leagueId, fetchLeagueData]);
 
     const fetchLeague = async (): Promise<void> => {
         if (!leagueId.trim()) {
@@ -24,28 +62,7 @@ export default function LeagueInput({
             return;
         }
 
-        setLoading(true);
-        setError('');
-        setLeagueData(null);
-
-        try {
-            const leagueRes = await fetch(
-                `https://api.sleeper.app/v1/league/${leagueId}`
-            );
-            if (!leagueRes.ok) throw new Error('League not found');
-            const leagueFetchData = (await leagueRes.json()) as LeagueData;
-            setLeagueData(leagueFetchData);
-
-            onLeagueSelect(leagueId);
-        } catch (err) {
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError('Failed to fetch league data.');
-            }
-        } finally {
-            setLoading(false);
-        }
+        await fetchLeagueData(leagueId);
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {

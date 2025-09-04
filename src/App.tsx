@@ -1,10 +1,37 @@
 import LeagueInput from './components/LeagueInput/LeagueInput';
 import Schedule from './components/Schedule/Schedule';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function App(): React.JSX.Element {
     const [leagueId, setLeagueId] = useState<string>('');
     const [week, setWeek] = useState<number>(1);
+
+    // Load saved values from session storage on component mount
+    useEffect(() => {
+        const savedLeagueId = sessionStorage.getItem('leagueId');
+        const savedWeek = sessionStorage.getItem('week');
+
+        if (savedLeagueId) {
+            setLeagueId(savedLeagueId);
+        }
+        if (savedWeek) {
+            setWeek(parseInt(savedWeek, 10));
+        }
+    }, []);
+
+    // Save league ID to session storage when it changes
+    useEffect(() => {
+        if (leagueId) {
+            sessionStorage.setItem('leagueId', leagueId);
+        } else {
+            sessionStorage.removeItem('leagueId');
+        }
+    }, [leagueId]);
+
+    // Save week to session storage when it changes
+    useEffect(() => {
+        sessionStorage.setItem('week', week.toString());
+    }, [week]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-700 via-green-600 to-green-500 text-gray-700 ">
@@ -26,7 +53,10 @@ export default function App(): React.JSX.Element {
 
                 {/* League Input Card */}
                 <div className="bg-white rounded-xl shadow-xl p-6 mb-6 max-w-2xl mx-auto">
-                    <LeagueInput onLeagueSelect={(id) => setLeagueId(id)} />
+                    <LeagueInput
+                        onLeagueSelect={(id) => setLeagueId(id)}
+                        initialLeagueId={leagueId}
+                    />
                 </div>
 
                 {/* Week Selector */}

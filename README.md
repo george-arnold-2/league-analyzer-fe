@@ -1,83 +1,92 @@
-# League Analyzer App
+# League Analyzer
 
-The purpose of this app is to be able to input a league_id and output a week-by-week projection tool to generate possible outcomes of each fantasy matchup, and ultimately demonstrate "pathway to the playoffs" that show you who has to win/lose what games remaining for a given team to make the playoffs.
+A React application for analyzing Sleeper fantasy football league data with roster projections and matchup analysis.
 
-The projection tool is going to use a very basic projection model to start as I get the pieces of the app in place. We will project the stat lines of every player in every game using the same variance model, but will eventually locate or create - once the app is functional its my intent to drill down on using talent metrics to predict more realistic outcomes.
+## Features
 
-## Getting Started
+- **League Search**: Enter a Sleeper league ID to load league data
+- **Roster Analysis**: View rosters with players ordered by position and projected points
+- **Matchup View**: See weekly matchups with calculated projection totals
+- **Session Storage**: Your league ID and week selection are saved between sessions
+- **Responsive Design**: Clean, modern UI built with Tailwind CSS
 
--- Download the rep
--- npm install
--- npm run dev
+## Development
 
-## Using the App
+### Prerequisites
 
-## React + TypeScript + Vite
+- Node.js 18.x or higher
+- npm
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### Setup
 
-Currently, two official plugins are available:
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
--   [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
--   [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Testing
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config([
-    globalIgnores(['dist']),
-    {
-        files: ['**/*.{ts,tsx}'],
-        extends: [
-            // Other configs...
-
-            // Remove tseslint.configs.recommended and replace with this
-            ...tseslint.configs.recommendedTypeChecked,
-            // Alternatively, use this for stricter rules
-            ...tseslint.configs.strictTypeChecked,
-            // Optionally, add this for stylistic rules
-            ...tseslint.configs.stylisticTypeChecked,
-
-            // Other configs...
-        ],
-        languageOptions: {
-            parserOptions: {
-                project: ['./tsconfig.node.json', './tsconfig.app.json'],
-                tsconfigRootDir: import.meta.dirname,
-            },
-            // other options...
-        },
-    },
-]);
+Run the test suite:
+```bash
+npm run test
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Building for Production
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x';
-import reactDom from 'eslint-plugin-react-dom';
-
-export default tseslint.config([
-    globalIgnores(['dist']),
-    {
-        files: ['**/*.{ts,tsx}'],
-        extends: [
-            // Other configs...
-            // Enable lint rules for React
-            reactX.configs['recommended-typescript'],
-            // Enable lint rules for React DOM
-            reactDom.configs.recommended,
-        ],
-        languageOptions: {
-            parserOptions: {
-                project: ['./tsconfig.node.json', './tsconfig.app.json'],
-                tsconfigRootDir: import.meta.dirname,
-            },
-            // other options...
-        },
-    },
-]);
+Build the application:
+```bash
+npm run build
 ```
+
+## Deployment
+
+This application is automatically deployed to GitHub Pages when changes are pushed to the `master` branch.
+
+### Manual Deployment
+
+1. Build the application:
+   ```bash
+   npm run build
+   ```
+2. The built files will be in the `dist` directory
+3. Deploy the contents of the `dist` directory to your hosting service
+
+## Usage
+
+1. Enter a Sleeper league ID (e.g., `1259966529118674944`)
+2. Select a week to analyze
+3. View roster projections and matchup data
+4. Your selections are automatically saved for the next visit
+
+## Technology Stack
+
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **Tailwind CSS** - Styling
+- **GitHub Actions** - CI/CD
+- **GitHub Pages** - Hosting
+
+## API
+
+This application uses the Sleeper API for fantasy football data:
+- League information
+- Roster data
+- Matchup information
+- Player projections
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+This project is open source and available under the [MIT License](LICENSE).
