@@ -1,5 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
-import playerLibrary from '../../../node-script/players.json';
+import { useEffect, useState, useCallback } from 'react';
 
 interface RosterData {
     roster_id: number;
@@ -9,11 +8,7 @@ interface RosterData {
 interface RosterProps {
     leagueId: string;
     matchupRoster: string;
-}
-
-interface PlayerInfo {
-    full_name: string;
-    fantasy_data_id: string;
+    onTotalUpdate?: (total: number) => void;
 }
 
 interface FantasyPlayer {
@@ -22,29 +17,44 @@ interface FantasyPlayer {
     'Projected Points': number;
     ID: string;
 }
+function getRandomProjection(base: number) {
+    if (base <= 0) return '0.00';
 
+    let result;
+
+    // 70% chance → small variance (0.5–1.5)
+    if (Math.random() < 0.7) {
+        const variance = 0.5 + Math.random() * 1; // 0.5–1.5
+        const direction = Math.random() < 0.5 ? -1 : 1;
+        result = base + variance * direction;
+    }
+    // 30% chance → larger variance depending on base
+    else {
+        const scale = Math.max(2, base / 2);
+        const min = Math.max(0, base - scale);
+        const max = Math.min(30, base + scale);
+        result = min + Math.random() * (max - min);
+    }
+
+    // Clamp to [0, 30]
+    result = Math.max(0, Math.min(30, result));
+
+    return result.toFixed(2);
+}
 export default function Roster({
     leagueId,
     matchupRoster,
-}: RosterProps): JSX.Element {
+    onTotalUpdate,
+}: RosterProps) {
     const [rosterData, setRosterData] = useState<RosterData[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fantasyPlayerLookup, setFantasyPlayerLookup] = useState<
         Record<string, FantasyPlayer>
     >({});
-
-    // Memoized player lookup from static JSON
-    const playerLookup = useMemo(() => {
-        const lookup: Record<string, PlayerInfo> = {};
-        Object.values(playerLibrary).forEach((player) => {
-            lookup[player.player_id] = {
-                full_name: player.full_name,
-                fantasy_data_id: player.fantasy_data_id,
-            };
-        });
-        return lookup;
-    }, []);
+    const [playerProjections, setPlayerProjections] = useState<
+        Record<string, number>
+    >({});
 
     // Fetch roster data from Sleeper API
     useEffect(() => {
@@ -75,7 +85,7 @@ export default function Roster({
             setError(null);
 
             try {
-                const res = await fetch('http://localhost:3000/api/players');
+                const res = await fetch('http://localhost:4000/api/players');
                 if (!res.ok)
                     throw new Error(`Error fetching players: ${res.status}`);
                 const allFantasyPlayers: FantasyPlayer[] = await res.json();
@@ -101,6 +111,33 @@ export default function Roster({
         fetchPlayerFantasyData();
     }, [rosterData]);
 
+    // Generate random projections once when fantasy data is loaded
+    useEffect(() => {
+        if (
+            rosterData &&
+            fantasyPlayerLookup &&
+            Object.keys(fantasyPlayerLookup).length > 0
+        ) {
+            const projections: Record<string, number> = {};
+
+            rosterData.forEach((roster) => {
+                roster.players.forEach((playerId) => {
+                    if (!projections[playerId]) {
+                        const fantasyPlayer = fantasyPlayerLookup[playerId];
+                        const base = fantasyPlayer
+                            ? fantasyPlayer['Projected Points'] / 17
+                            : 0;
+                        projections[playerId] = parseFloat(
+                            getRandomProjection(base)
+                        );
+                    }
+                });
+            });
+
+            setPlayerProjections(projections);
+        }
+    }, [rosterData, fantasyPlayerLookup]);
+
     // Position color mapping
     const getPositionColor = (position: string) => {
         switch (position) {
@@ -120,6 +157,110 @@ export default function Roster({
                 return 'bg-green-100 text-green-800';
         }
     };
+
+    // Sort and filter players for starting lineup
+    const getStartingLineup = useCallback(
+        (players: string[]) => {
+            // Position order for starting lineup
+            const positionOrder = [
+                'QB',
+                'RB',
+                'RB',
+                'WR',
+                'WR',
+                'TE',
+                'DEF',
+                'K',
+            ];
+            const playersWithProjections = players.map((playerId) => {
+                const fantasyPlayer = fantasyPlayerLookup[playerId];
+                const projectedPoints = playerProjections[playerId] || 0;
+
+                return {
+                    playerId,
+                    fantasyPlayer,
+                    projectedPoints,
+                    position: fantasyPlayer?.Position || 'DEF',
+                };
+            });
+
+            // Group players by position
+            const playersByPosition = playersWithProjections.reduce(
+                (acc, player) => {
+                    const pos = player.position;
+                    if (!acc[pos]) acc[pos] = [];
+                    acc[pos].push(player);
+                    return acc;
+                },
+                {} as Record<string, typeof playersWithProjections>
+            );
+
+            // Sort each position by projection (highest first)
+            Object.keys(playersByPosition).forEach((pos) => {
+                playersByPosition[pos].sort(
+                    (a, b) => b.projectedPoints - a.projectedPoints
+                );
+            });
+
+            // Build starting lineup in order
+            const startingLineup: typeof playersWithProjections = [];
+            const positionCounts: Record<string, number> = {};
+
+            positionOrder.forEach((pos) => {
+                const count = positionCounts[pos] || 0;
+                positionCounts[pos] = count + 1;
+
+                if (playersByPosition[pos] && playersByPosition[pos][count]) {
+                    startingLineup.push(playersByPosition[pos][count]);
+                }
+            });
+
+            return startingLineup;
+        },
+        [fantasyPlayerLookup, playerProjections]
+    );
+
+    // Calculate total projection for starting lineup
+    const calculateStartingTotal = useCallback(
+        (players: string[]) => {
+            const startingLineup = getStartingLineup(players);
+            return startingLineup.reduce(
+                (total, player) => total + player.projectedPoints,
+                0
+            );
+        },
+        [getStartingLineup]
+    );
+
+    // Update parent component with total projection
+    useEffect(() => {
+        if (
+            rosterData &&
+            fantasyPlayerLookup &&
+            Object.keys(fantasyPlayerLookup).length > 0
+        ) {
+            rosterData.forEach((roster, i) => {
+                const matchupRosterNumber = Number(
+                    matchupRoster.replace(/\D/g, '')
+                );
+
+                if (i + 1 === matchupRosterNumber) {
+                    const totalProjection = calculateStartingTotal(
+                        roster.players
+                    );
+                    if (onTotalUpdate && totalProjection > 0) {
+                        onTotalUpdate(totalProjection);
+                    }
+                }
+            });
+        }
+    }, [
+        rosterData,
+        fantasyPlayerLookup,
+        matchupRoster,
+        onTotalUpdate,
+        calculateStartingTotal,
+    ]);
 
     return (
         <div className="w-full">
@@ -152,6 +293,8 @@ export default function Roster({
 
                     if (i + 1 !== matchupRosterNumber) return null;
 
+                    const startingLineup = getStartingLineup(roster.players);
+
                     return (
                         <div
                             key={roster.roster_id}
@@ -165,34 +308,26 @@ export default function Roster({
 
                             <div className="p-4">
                                 <div className="space-y-3">
-                                    {roster.players.map((playerId) => {
-                                        const fantasyPlayer =
-                                            fantasyPlayerLookup[
-                                                String(playerId)
-                                            ];
-                                        const projectedPoints = fantasyPlayer
-                                            ? (
-                                                  fantasyPlayer[
-                                                      'Projected Points'
-                                                  ] / 17
-                                              ).toFixed(2)
-                                            : '0.00';
-
+                                    {startingLineup.map((player, index) => {
                                         return (
                                             <div
-                                                key={playerId}
+                                                key={`${player.playerId}-${index}`}
                                                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                                             >
                                                 <div className="flex items-center space-x-3">
                                                     <div className="flex-shrink-0">
-                                                        {fantasyPlayer ? (
+                                                        {player.fantasyPlayer ? (
                                                             <span
                                                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPositionColor(
-                                                                    fantasyPlayer.Position
+                                                                    player
+                                                                        .fantasyPlayer
+                                                                        .Position
                                                                 )}`}
                                                             >
                                                                 {
-                                                                    fantasyPlayer.Position
+                                                                    player
+                                                                        .fantasyPlayer
+                                                                        .Position
                                                                 }
                                                             </span>
                                                         ) : (
@@ -203,15 +338,20 @@ export default function Roster({
                                                     </div>
                                                     <div>
                                                         <p className="text-sm font-semibold text-gray-900">
-                                                            {fantasyPlayer?.Name ||
-                                                                `Defense (${playerId})`}
+                                                            {player
+                                                                .fantasyPlayer
+                                                                ?.Name ||
+                                                                `Defense (${player.playerId})`}
                                                         </p>
                                                     </div>
                                                 </div>
 
                                                 <div className="text-right">
                                                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                                        {projectedPoints} pts
+                                                        {player.projectedPoints.toFixed(
+                                                            2
+                                                        )}{' '}
+                                                        pts
                                                     </span>
                                                 </div>
                                             </div>

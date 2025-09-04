@@ -13,13 +13,20 @@ interface ScheduleProps {
     week: number;
 }
 
-export default function Schedule({
-    leagueId,
-    week,
-}: ScheduleProps): JSX.Element {
+export default function Schedule({ leagueId, week }: ScheduleProps) {
     const [matchups, setMatchups] = useState<Matchup[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
+    const [rosterTotals, setRosterTotals] = useState<Record<string, number>>(
+        {}
+    );
+
+    const handleRosterTotalUpdate = (rosterName: string, total: number) => {
+        setRosterTotals((prev) => ({
+            ...prev,
+            [rosterName]: total,
+        }));
+    };
 
     useEffect(() => {
         const fetchMatchups = async () => {
@@ -182,13 +189,26 @@ export default function Schedule({
                                         <h4 className="text-lg font-medium text-gray-800">
                                             {matchup.rosters[0]}
                                         </h4>
-                                        <span className="text-lg font-bold text-green-600">
-                                            {matchup.points[0]} pts
+                                        <span
+                                            id="matchup-total"
+                                            className="text-lg font-bold text-green-600"
+                                        >
+                                            {rosterTotals[matchup.rosters[0]]
+                                                ? `${rosterTotals[
+                                                      matchup.rosters[0]
+                                                  ].toFixed(2)} pts`
+                                                : `${matchup.points[0]} pts`}
                                         </span>
                                     </div>
                                     <Roster
                                         leagueId={leagueId}
                                         matchupRoster={matchup.rosters[0]}
+                                        onTotalUpdate={(total) =>
+                                            handleRosterTotalUpdate(
+                                                matchup.rosters[0],
+                                                total
+                                            )
+                                        }
                                     />
                                 </div>
 
@@ -198,12 +218,22 @@ export default function Schedule({
                                             {matchup.rosters[1]}
                                         </h4>
                                         <span className="text-lg font-bold text-green-600">
-                                            {matchup.points[1]} pts
+                                            {rosterTotals[matchup.rosters[1]]
+                                                ? `${rosterTotals[
+                                                      matchup.rosters[1]
+                                                  ].toFixed(2)} pts`
+                                                : `${matchup.points[1]} pts`}
                                         </span>
                                     </div>
                                     <Roster
                                         leagueId={leagueId}
                                         matchupRoster={matchup.rosters[1]}
+                                        onTotalUpdate={(total) =>
+                                            handleRosterTotalUpdate(
+                                                matchup.rosters[1],
+                                                total
+                                            )
+                                        }
                                     />
                                 </div>
                             </div>
