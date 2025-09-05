@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Roster from '../Roster/Roster';
 
 interface Matchup {
@@ -21,12 +21,19 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
         {}
     );
 
-    const handleRosterTotalUpdate = (rosterName: string, total: number) => {
-        setRosterTotals((prev) => ({
-            ...prev,
-            [rosterName]: total,
-        }));
-    };
+    const handleRosterTotalUpdate = useCallback(
+        (rosterName: string, total: number) => {
+            setRosterTotals((prev) => {
+                // Avoid unnecessary state updates
+                if (prev[rosterName] === total) return prev;
+                return {
+                    ...prev,
+                    [rosterName]: total,
+                };
+            });
+        },
+        []
+    );
 
     useEffect(() => {
         const fetchMatchups = async () => {
@@ -170,14 +177,6 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                                     <h3 className="text-xl font-semibold text-gray-900">
                                         Matchup {i + 1}
                                     </h3>
-                                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                        <span className="bg-white px-3 py-1 rounded-full shadow-sm">
-                                            {matchup.rosters.join(' vs ')}
-                                        </span>
-                                        <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
-                                            Points: {matchup.points.join(' / ')}
-                                        </span>
-                                    </div>
                                 </div>
                                 <div className="h-px bg-gradient-to-r from-green-200 via-green-300 to-green-200"></div>
                             </div>
@@ -186,9 +185,6 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="text-lg font-medium text-gray-800">
-                                            {matchup.rosters[0]}
-                                        </h4>
                                         <span
                                             id="matchup-total"
                                             className="text-lg font-bold text-green-600"
@@ -203,20 +199,13 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                                     <Roster
                                         leagueId={leagueId}
                                         matchupRoster={matchup.rosters[0]}
-                                        onTotalUpdate={(total) =>
-                                            handleRosterTotalUpdate(
-                                                matchup.rosters[0],
-                                                total
-                                            )
-                                        }
+                                        rosterName={matchup.rosters[0]}
+                                        onTotalUpdate={handleRosterTotalUpdate}
                                     />
                                 </div>
 
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="text-lg font-medium text-gray-800">
-                                            {matchup.rosters[1]}
-                                        </h4>
                                         <span className="text-lg font-bold text-green-600">
                                             {rosterTotals[matchup.rosters[1]]
                                                 ? `${rosterTotals[
@@ -228,12 +217,8 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                                     <Roster
                                         leagueId={leagueId}
                                         matchupRoster={matchup.rosters[1]}
-                                        onTotalUpdate={(total) =>
-                                            handleRosterTotalUpdate(
-                                                matchup.rosters[1],
-                                                total
-                                            )
-                                        }
+                                        rosterName={matchup.rosters[1]}
+                                        onTotalUpdate={handleRosterTotalUpdate}
                                     />
                                 </div>
                             </div>

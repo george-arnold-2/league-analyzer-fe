@@ -3,12 +3,22 @@ import { useEffect, useState, useCallback } from 'react';
 interface RosterData {
     roster_id: number;
     players: string[];
+    owner_id: string;
+}
+
+interface UserData {
+    user_id: string;
+    display_name: string;
+    metadata: {
+        team_name: string;
+    };
 }
 
 interface RosterProps {
     leagueId: string;
     matchupRoster: string;
-    onTotalUpdate?: (total: number) => void;
+    rosterName?: string;
+    onTotalUpdate?: (rosterName: string, total: number) => void;
 }
 
 interface FantasyPlayer {
@@ -17,36 +27,64 @@ interface FantasyPlayer {
     'Projected Points': number;
     ID: string;
 }
+
+// current model for random projection generation for each iteration of scheduling
+// ideally, this could be replaced by AI/LLM that is able to analyze NFL data to calculate the actual liklihood of given players scoring within ranges of projections
 function getRandomProjection(base: number) {
-    if (base <= 0) return '0.00';
+    // handles edge cases to avoid errors killing the functionality
+    if (base <= 0) {
+        // console.error("base projection doesn't exist");
+        return '0.00';
+    }
 
     let result;
 
-    // 70% chance → small variance (0.5–1.5)
+    // SCENARIO 1: Small variance (70% probability)
+    // numbers are arbitrary with goal of 70% of the time, something happens with predictibility and 30% of the time, something else happens
     if (Math.random() < 0.7) {
-        const variance = 0.5 + Math.random() * 1; // 0.5–1.5
+        // Generate a small variance between 0.5 and 1.5
+        const variance = 0.5 + Math.random(); // Range: 0.5–1.5
+
+        // Randomly choose direction: -1 (subtract) or +1 (add)
         const direction = Math.random() < 0.5 ? -1 : 1;
+
+        // use the original base argument
         result = base + variance * direction;
     }
-    // 30% chance → larger variance depending on base
+    // SCENARIO 2: Large variance (30% probability)
     else {
+        // Calculate scaling factor based on base value
+        // Use at least 2, or half the base value, whichever is larger
         const scale = Math.max(2, base / 2);
+
+        // Calculate minimum possible value
+        // Subtract scale from base, but never go below 0
         const min = Math.max(0, base - scale);
+
+        // Calculate maximum possible value
+        // Add scale to base, but never exceed 30 (arbitrary limit for realistic projectons)
         const max = Math.min(30, base + scale);
+
+        // Generate random value within the calculated range
+        // Adding min shifts it to the desired range
         result = min + Math.random() * (max - min);
     }
 
-    // Clamp to [0, 30]
+    // Ensure result stays within bounds, likely not needed but a one line safety valve
     result = Math.max(0, Math.min(30, result));
 
+    // Return formatted result with exactly 2 decimal places
+    // toFixed(2) converts number to string with 2 decimal precision
     return result.toFixed(2);
 }
 export default function Roster({
     leagueId,
     matchupRoster,
+    rosterName,
     onTotalUpdate,
 }: RosterProps) {
     const [rosterData, setRosterData] = useState<RosterData[] | null>(null);
+    const [userData, setUserData] = useState<UserData[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fantasyPlayerLookup, setFantasyPlayerLookup] = useState<
@@ -66,6 +104,28 @@ export default function Roster({
                 if (!res.ok) throw new Error('Rosters not found');
                 const data = (await res.json()) as RosterData[];
                 setRosterData(data);
+                // console.log(data, 'roster data');
+            } catch (err) {
+                const msg =
+                    err instanceof Error ? err.message : 'Unknown error';
+                setError(msg);
+                // console.error('Error fetching rosters:', err);
+            }
+        };
+        fetchRoster();
+    }, [leagueId]);
+
+    // Fetch user data from Sleeper API
+    useEffect(() => {
+        const fetchUsers = async (): Promise<void> => {
+            try {
+                const res = await fetch(
+                    `https://api.sleeper.app/v1/league/${leagueId}/users`
+                );
+                if (!res.ok) throw new Error('Users not found');
+                const data = (await res.json()) as UserData[];
+                setUserData(data);
+                console.log(data, 'userData');
             } catch (err) {
                 const msg =
                     err instanceof Error ? err.message : 'Unknown error';
@@ -73,7 +133,7 @@ export default function Roster({
                 console.error('Error fetching rosters:', err);
             }
         };
-        fetchRoster();
+        fetchUsers();
     }, [leagueId]);
 
     // Fetch fantasy player data
@@ -249,7 +309,10 @@ export default function Roster({
                         roster.players
                     );
                     if (onTotalUpdate && totalProjection > 0) {
-                        onTotalUpdate(totalProjection);
+                        onTotalUpdate(
+                            rosterName ?? matchupRoster,
+                            totalProjection
+                        );
                     }
                 }
             });
@@ -258,6 +321,7 @@ export default function Roster({
         rosterData,
         fantasyPlayerLookup,
         matchupRoster,
+        rosterName,
         onTotalUpdate,
         calculateStartingTotal,
     ]);
@@ -302,7 +366,18 @@ export default function Roster({
                         >
                             <div className="bg-gradient-to-r from-green-600 via-green-500 to-green-400 px-4 py-3">
                                 <h4 className="text-lg font-semibold text-white">
-                                    Roster {i + 1}
+                                    {(() => {
+                                        const owner = userData?.find(
+                                            (user) =>
+                                                user.user_id === roster.owner_id
+                                        );
+                                        return owner
+                                            ? ` ${owner.display_name} (${
+                                                  owner.metadata.team_name ??
+                                                  'Team ' + owner.display_name
+                                              })`
+                                            : '';
+                                    })()}
                                 </h4>
                             </div>
 

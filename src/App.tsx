@@ -6,7 +6,7 @@ export default function App(): React.JSX.Element {
     const [leagueId, setLeagueId] = useState<string>('');
     const [week, setWeek] = useState<number>(1);
 
-    // Load saved values from session storage on component mount
+    // Load saved values if they exist
     useEffect(() => {
         const savedLeagueId = sessionStorage.getItem('leagueId');
         const savedWeek = sessionStorage.getItem('week');
@@ -29,6 +29,7 @@ export default function App(): React.JSX.Element {
     }, [leagueId]);
 
     // Save week to session storage when it changes
+
     useEffect(() => {
         sessionStorage.setItem('week', week.toString());
     }, [week]);
