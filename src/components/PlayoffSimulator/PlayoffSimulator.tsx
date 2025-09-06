@@ -17,8 +17,7 @@ interface MatchupResult {
 
 interface TeamRecord {
     teamName: string;
-    wins: number;
-    losses: number;
+    expectedWins: number;
     playoffOdds: number;
 }
 
@@ -35,16 +34,12 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
     } | null>(null);
     const [error, setError] = useState<string | null>(null);
     
-    // State to hold data needed for simulations
-    const [rosterData, setRosterData] = useState<any[]>([]);
-    const [userData, setUserData] = useState<any[]>([]);
-    const [fantasyPlayerLookup, setFantasyPlayerLookup] = useState<Record<string, any>>({});
+    // State removed - data is fetched directly in simulation function
 
     // Fetch roster data from Sleeper API
     const fetchRosterData = async () => {
         const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`);
         const data = await res.json();
-        setRosterData(data);
         return data;
     };
 
@@ -52,7 +47,6 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
     const fetchUserData = async () => {
         const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`);
         const data = await res.json();
-        setUserData(data);
         return data;
     };
 
@@ -66,7 +60,6 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
             return acc;
         }, {});
         
-        setFantasyPlayerLookup(lookup);
         return lookup;
     };
 
@@ -193,29 +186,39 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
         }
     };
 
-    // Simple playoff odds calculation
-    const calculatePlayoffOdds = (wins: number, allTeamWins: Record<string, number>): number => {
-        const sortedWins = Object.values(allTeamWins).sort((a, b) => b - a);
-        const rank = sortedWins.indexOf(wins) + 1;
+    // Probabilistic playoff odds calculation based on expected wins
+    const calculatePlayoffOdds = (expectedWins: number, allTeamExpectedWins: Record<string, number>): number => {
+        const sortedExpectedWins = Object.values(allTeamExpectedWins).sort((a, b) => b - a);
+        const rank = sortedExpectedWins.indexOf(expectedWins) + 1;
         
-        // Simple calculation: top 6 teams make playoffs
+        // Calculate odds based on expected wins and ranking
+        // Teams with more expected wins have higher playoff odds
+        const maxExpectedWins = Math.max(...sortedExpectedWins);
+        const minExpectedWins = Math.min(...sortedExpectedWins);
+        const range = maxExpectedWins - minExpectedWins;
+        
+        if (range === 0) return 50; // All teams equal
+        
+        // Normalize expected wins to 0-100 scale, with top 6 teams having higher base odds
+        const normalizedScore = (expectedWins - minExpectedWins) / range;
+        
         if (rank <= 6) {
-            return Math.max(50, 100 - (rank - 1) * 10);
+            return Math.min(95, 60 + normalizedScore * 35);
         } else {
-            return Math.max(0, 50 - (rank - 6) * 10);
+            return Math.max(5, normalizedScore * 40);
         }
     };
 
-    // Main simulation function
+    // Main simulation function using probabilistic approach
     const runSeasonSimulation = async (rosters: any[], users: any[], playerLookup: Record<string, any>): Promise<{ weekResults: SimulationResult[], playoffOdds: TeamRecord[] }> => {
         const weekResults: SimulationResult[] = [];
-        const teamWins: Record<string, number> = {};
+        const teamExpectedWins: Record<string, number> = {};
         const totalSimulations = 1000;
 
-        // Initialize team win counters
+        // Initialize team expected win counters
         rosters.forEach(roster => {
             const teamName = getTeamName(roster.roster_id, rosters, users);
-            teamWins[teamName] = 0;
+            teamExpectedWins[teamName] = 0;
         });
 
         // Run simulations for each remaining week
@@ -242,34 +245,33 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
 
                 const team1Name = getTeamName(matchup.team1RosterId, rosters, users);
                 const team2Name = getTeamName(matchup.team2RosterId, rosters, users);
+                
+                const team1WinPercentage = (team1Wins / totalSimulations) * 100;
+                const team2WinPercentage = (team2Wins / totalSimulations) * 100;
 
                 weekResult.matchups.push({
                     team1: team1Name,
                     team2: team2Name,
                     team1Wins,
                     team2Wins,
-                    team1WinPercentage: (team1Wins / totalSimulations) * 100,
-                    team2WinPercentage: (team2Wins / totalSimulations) * 100
+                    team1WinPercentage,
+                    team2WinPercentage
                 });
 
-                // Add to season totals (using most likely winner)
-                if (team1Wins > team2Wins) {
-                    teamWins[team1Name]++;
-                } else {
-                    teamWins[team2Name]++;
-                }
+                // Add expected wins based on win probability (not binary outcome)
+                teamExpectedWins[team1Name] += team1WinPercentage / 100;
+                teamExpectedWins[team2Name] += team2WinPercentage / 100;
             }
 
             weekResults.push(weekResult);
         }
 
-        // Calculate playoff odds (top 6 teams make playoffs in most leagues)
-        const playoffOdds = Object.entries(teamWins).map(([teamName, wins]) => ({
+        // Calculate playoff odds based on expected wins
+        const playoffOdds = Object.entries(teamExpectedWins).map(([teamName, expectedWins]) => ({
             teamName,
-            wins,
-            losses: (17 - currentWeek + 1) - wins,
-            playoffOdds: calculatePlayoffOdds(wins, teamWins)
-        })).sort((a, b) => b.wins - a.wins);
+            expectedWins,
+            playoffOdds: calculatePlayoffOdds(expectedWins, teamExpectedWins)
+        })).sort((a, b) => b.expectedWins - a.expectedWins);
 
         return { weekResults, playoffOdds };
     };
@@ -343,7 +345,7 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
                                     <tr>
                                         <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Rank</th>
                                         <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Team</th>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Projected Record</th>
+                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Expected Wins</th>
                                         <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Playoff Odds</th>
                                     </tr>
                                 </thead>
@@ -352,7 +354,7 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
                                         <tr key={team.teamName} className={index < 6 ? 'bg-green-50' : ''}>
                                             <td className="px-4 py-3 text-sm text-gray-900">{index + 1}</td>
                                             <td className="px-4 py-3 text-sm font-medium text-gray-900">{team.teamName}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-900">{team.wins}-{team.losses}</td>
+                                            <td className="px-4 py-3 text-sm text-gray-900">{team.expectedWins.toFixed(1)}</td>
                                             <td className="px-4 py-3 text-sm">
                                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                                                     team.playoffOdds >= 70 ? 'bg-green-100 text-green-800' :

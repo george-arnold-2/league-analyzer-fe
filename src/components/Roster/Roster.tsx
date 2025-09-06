@@ -19,11 +19,8 @@ interface RosterProps {
     matchupRoster: string;
     rosterName?: string;
     onTotalUpdate?: (rosterName: string, total: number) => void;
-    rosterData?: RosterData[] | null;
-    userData?: UserData[] | null;
 }
 
-// Defines what a fantasy player object looks like from our local API
 interface FantasyPlayer {
     Name: string;
     Position: string;
@@ -34,45 +31,60 @@ interface FantasyPlayer {
 // current model for random projection generation for each iteration of scheduling
 // ideally, this could be replaced by AI/LLM that is able to analyze NFL data to calculate the actual liklihood of given players scoring within ranges of projections
 function getRandomProjection(base: number) {
+    // handles edge cases to avoid errors killing the functionality
     if (base <= 0) {
+        // console.error("base projection doesn't exist");
         return '0.00';
     }
 
     let result;
-    const rand = Math.random();
 
-    if (rand < 0.4) {
-        // 40% chance: +/- 4 points, above is 2x as likely
-        const direction = Math.random() < 0.666 ? 1 : -1; // 2/3 chance for +
-        const variance = 4;
+    // SCENARIO 1: Small variance (70% probability)
+    // numbers are arbitrary with goal of 70% of the time, something happens with predictibility and 30% of the time, something else happens
+    if (Math.random() < 0.7) {
+        // Generate a small variance between 0.5 and 1.5
+        const variance = 0.5 + Math.random(); // Range: 0.5–1.5
+
+        // Randomly choose direction: -1 (subtract) or +1 (add)
+        const direction = Math.random() < 0.5 ? -1 : 1;
+
+        // use the original base argument
         result = base + variance * direction;
-    } else if (rand < 0.6) {
-        // Next 20%: +/- 6 points, above is 2x as likely
-        const direction = Math.random() < 0.666 ? 1 : -1;
-        const variance = 6;
-        result = base + variance * direction;
-    } else {
-        // 40%: scaled result (as before)
+    }
+    // SCENARIO 2: Large variance (30% probability)
+    else {
+        // Calculate scaling factor based on base value
+        // Use at least 2, or half the base value, whichever is larger
         const scale = Math.max(2, base / 2);
+
+        // Calculate minimum possible value
+        // Subtract scale from base, but never go below 0
         const min = Math.max(0, base - scale);
+
+        // Calculate maximum possible value
+        // Add scale to base, but never exceed 30 (arbitrary limit for realistic projectons)
         const max = Math.min(30, base + scale);
+
+        // Generate random value within the calculated range
+        // Adding min shifts it to the desired range
         result = min + Math.random() * (max - min);
     }
 
+    // Ensure result stays within bounds, likely not needed but a one line safety valve
     result = Math.max(0, Math.min(30, result));
+
+    // Return formatted result with exactly 2 decimal places
+    // toFixed(2) converts number to string with 2 decimal precision
     return result.toFixed(2);
 }
-
 export default function Roster({
     leagueId,
     matchupRoster,
     rosterName,
     onTotalUpdate,
-    rosterData: propRosterData,
-    userData: propUserData,
 }: RosterProps) {
-    // Use props if provided, otherwise fall back to local state for backward compatibility
-
+    const [rosterData, setRosterData] = useState<RosterData[] | null>(null);
+    const [userData, setUserData] = useState<UserData[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fantasyPlayerLookup, setFantasyPlayerLookup] = useState<
@@ -82,22 +94,47 @@ export default function Roster({
         Record<string, number>
     >({});
 
-    // Use props data if available, otherwise use local state
-    const rosterData = propRosterData;
-    const userData = propUserData;
+    // Fetch roster data from Sleeper API
+    useEffect(() => {
+        const fetchRoster = async (): Promise<void> => {
+            try {
+                const res = await fetch(
+                    `https://api.sleeper.app/v1/league/${leagueId}/rosters`
+                );
+                if (!res.ok) throw new Error('Rosters not found');
+                const data = (await res.json()) as RosterData[];
+                setRosterData(data);
+                // console.log(data, 'roster data');
+            } catch (err) {
+                const msg =
+                    err instanceof Error ? err.message : 'Unknown error';
+                setError(msg);
+                // console.error('Error fetching rosters:', err);
+            }
+        };
+        fetchRoster();
+    }, [leagueId]);
 
-    // Helper function to shorten player names for mobile
-    const shortenPlayerName = (fullName: string): string => {
-        if (!fullName || fullName.includes('Defense')) return fullName;
-
-        const parts = fullName.trim().split(' ');
-        if (parts.length < 2) return fullName;
-
-        const firstName = parts[0];
-        const lastName = parts[parts.length - 1];
-
-        return `${firstName.charAt(0)}.${lastName}`;
-    };
+    // Fetch user data from Sleeper API
+    useEffect(() => {
+        const fetchUsers = async (): Promise<void> => {
+            try {
+                const res = await fetch(
+                    `https://api.sleeper.app/v1/league/${leagueId}/users`
+                );
+                if (!res.ok) throw new Error('Users not found');
+                const data = (await res.json()) as UserData[];
+                setUserData(data);
+                console.log(data, 'userData');
+            } catch (err) {
+                const msg =
+                    err instanceof Error ? err.message : 'Unknown error';
+                setError(msg);
+                console.error('Error fetching rosters:', err);
+            }
+        };
+        fetchUsers();
+    }, [leagueId]);
 
     // Fetch fantasy player data
     useEffect(() => {
@@ -119,8 +156,6 @@ export default function Roster({
                     acc[player.ID] = player;
                     return acc;
                 }, {});
-
-                // console.log(lookup, 'fetchPlayerFantasyData lookups');
 
                 setFantasyPlayerLookup(lookup);
             } catch (err) {
@@ -330,42 +365,35 @@ export default function Roster({
                             className="bg-white rounded-lg shadow-md border border-green-200 overflow-hidden mb-4"
                         >
                             <div className="bg-gradient-to-r from-green-600 via-green-500 to-green-400 px-4 py-3">
-                                <h4 className="text-sm font-semibold text-white ">
+                                <h4 className="text-lg font-semibold text-white">
                                     {(() => {
                                         const owner = userData?.find(
                                             (user) =>
                                                 user.user_id === roster.owner_id
                                         );
-                                        return owner ? (
-                                            <>
-                                                {owner.metadata.team_name ??
-                                                    'Team ' +
-                                                        owner.display_name}
-                                                <small>
-                                                    {' '}
-                                                    ({owner.display_name})
-                                                </small>
-                                            </>
-                                        ) : (
-                                            ''
-                                        );
+                                        return owner
+                                            ? ` ${owner.display_name} (${
+                                                  owner.metadata.team_name ??
+                                                  'Team ' + owner.display_name
+                                              })`
+                                            : '';
                                     })()}
                                 </h4>
                             </div>
 
-                            <div className="p-2 sm:p-4">
-                                <div className="space-y-1 sm:space-y-3">
+                            <div className="p-4">
+                                <div className="space-y-3">
                                     {startingLineup.map((player, index) => {
                                         return (
                                             <div
                                                 key={`${player.playerId}-${index}`}
-                                                className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                                             >
-                                                <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                                                <div className="flex items-center space-x-3">
                                                     <div className="flex-shrink-0">
                                                         {player.fantasyPlayer ? (
                                                             <span
-                                                                className={`inline-flex items-center px-1.5 py-0.5 sm:px-2.5 rounded-full text-xs ${getPositionColor(
+                                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPositionColor(
                                                                     player
                                                                         .fantasyPlayer
                                                                         .Position
@@ -378,36 +406,27 @@ export default function Roster({
                                                                 }
                                                             </span>
                                                         ) : (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2.5 rounded-full text-xs bg-gray-100 text-gray-800">
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                                                 DEF
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="text-xs sm:text-sm text-gray-900 truncate">
-                                                            <span className="sm:hidden">
-                                                                {shortenPlayerName(
-                                                                    player
-                                                                        .fantasyPlayer
-                                                                        ?.Name ||
-                                                                        `Defense (${player.playerId})`
-                                                                )}
-                                                            </span>
-                                                            <span className="hidden sm:inline">
-                                                                {player
-                                                                    .fantasyPlayer
-                                                                    ?.Name ||
-                                                                    `Defense (${player.playerId})`}
-                                                            </span>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-gray-900">
+                                                            {player
+                                                                .fantasyPlayer
+                                                                ?.Name ||
+                                                                `Defense (${player.playerId})`}
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                <div className="text-right flex-shrink-0 ml-2">
-                                                    <span className="inline-flex items-center px-2 py-1 sm:px-3 rounded-full text-xs sm:text-sm bg-green-100 text-green-800">
+                                                <div className="text-right">
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                                                         {player.projectedPoints.toFixed(
                                                             2
-                                                        )}
+                                                        )}{' '}
+                                                        pts
                                                     </span>
                                                 </div>
                                             </div>
