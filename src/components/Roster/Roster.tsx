@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { API_ENDPOINTS } from '../../config/api';
 
 interface RosterData {
     roster_id: number;
@@ -145,7 +146,7 @@ export default function Roster({
             setError(null);
 
             try {
-                const res = await fetch('http://localhost:4000/api/players');
+                const res = await fetch(API_ENDPOINTS.players);
                 if (!res.ok)
                     throw new Error(`Error fetching players: ${res.status}`);
                 const allFantasyPlayers: FantasyPlayer[] = await res.json();

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_ENDPOINTS } from '../../config/api';
 
 // Types for simulation data
 interface SimulationResult {
@@ -52,7 +53,7 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
 
     // Fetch fantasy player data
     const fetchFantasyPlayerData = async () => {
-        const res = await fetch('http://localhost:4000/api/players');
+        const res = await fetch(API_ENDPOINTS.players);
         const allFantasyPlayers = await res.json();
         
         const lookup = allFantasyPlayers.reduce((acc: any, player: any) => {
