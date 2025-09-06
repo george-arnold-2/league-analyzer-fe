@@ -19,7 +19,10 @@ interface PlayoffMapsProps {
     currentWeek: number;
 }
 
-export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps) {
+export default function PlayoffMaps({
+    leagueId,
+    currentWeek,
+}: PlayoffMapsProps) {
     const [owners, setOwners] = useState<Owner[]>([]);
     const [selectedOwner, setSelectedOwner] = useState<Owner | null>(null);
     const [matchups, setMatchups] = useState<Matchup[]>([]);
@@ -31,19 +34,26 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
         const fetchOwners = async () => {
             try {
                 const [rostersRes, usersRes] = await Promise.all([
-                    fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`),
-                    fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`)
+                    fetch(
+                        `https://api.sleeper.app/v1/league/${leagueId}/rosters`
+                    ),
+                    fetch(
+                        `https://api.sleeper.app/v1/league/${leagueId}/users`
+                    ),
                 ]);
 
                 const rosters = await rostersRes.json();
                 const users = await usersRes.json();
 
                 const ownersData = rosters.map((roster: any) => {
-                    const user = users.find((u: any) => u.user_id === roster.owner_id);
+                    const user = users.find(
+                        (u: any) => u.user_id === roster.owner_id
+                    );
                     return {
                         user_id: roster.owner_id,
-                        display_name: user?.display_name || `Team ${roster.roster_id}`,
-                        roster_id: roster.roster_id
+                        display_name:
+                            user?.display_name || `Team ${roster.roster_id}`,
+                        roster_id: roster.roster_id,
                     };
                 });
 
@@ -65,26 +75,36 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
 
         try {
             const matchupsData: Matchup[] = [];
-            
+
             // Fetch matchups for remaining weeks
             for (let week = currentWeek; week <= 17; week++) {
-                const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`);
+                const res = await fetch(
+                    `https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`
+                );
                 const weekMatchups = await res.json();
 
                 // Find this owner's matchup for the week
-                const ownerMatchup = weekMatchups.find((m: any) => m.roster_id === owner.roster_id);
+                const ownerMatchup = weekMatchups.find(
+                    (m: any) => m.roster_id === owner.roster_id
+                );
                 if (ownerMatchup) {
                     // Find opponent
-                    const opponentMatchup = weekMatchups.find((m: any) => 
-                        m.matchup_id === ownerMatchup.matchup_id && m.roster_id !== owner.roster_id
+                    const opponentMatchup = weekMatchups.find(
+                        (m: any) =>
+                            m.matchup_id === ownerMatchup.matchup_id &&
+                            m.roster_id !== owner.roster_id
                     );
 
                     if (opponentMatchup) {
-                        const opponent = owners.find(o => o.roster_id === opponentMatchup.roster_id);
-                        
+                        const opponent = owners.find(
+                            (o) => o.roster_id === opponentMatchup.roster_id
+                        );
+
                         matchupsData.push({
                             week,
-                            opponent: opponent?.display_name || `Team ${opponentMatchup.roster_id}`,
+                            opponent:
+                                opponent?.display_name ||
+                                `Team ${opponentMatchup.roster_id}`,
                             winProbability: Math.random() * 40 + 30, // Random 30-70% for now
                             // TODO: Add actual win/loss data from completed games
                         });
@@ -101,7 +121,7 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
     };
 
     const handleOwnerSelect = (ownerId: string) => {
-        const owner = owners.find(o => o.user_id === ownerId);
+        const owner = owners.find((o) => o.user_id === ownerId);
         if (owner) {
             setSelectedOwner(owner);
             generateMatchupMap(owner);
@@ -115,42 +135,51 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
         const scenarios = [];
         const totalGames = matchups.length;
         const currentWins = 0; // TODO: Add current wins from API
-        
-        for (let additionalWins = 0; additionalWins <= totalGames; additionalWins++) {
+
+        for (
+            let additionalWins = 0;
+            additionalWins <= totalGames;
+            additionalWins++
+        ) {
             const totalWins = currentWins + additionalWins;
             const probability = calculateWinProbability(additionalWins);
             const playoffOdds = calculatePlayoffOdds(totalWins);
-            
+
             scenarios.push({
                 wins: additionalWins,
                 totalWins,
                 probability: probability * 100,
                 playoffOdds,
-                makesPlayoffs: playoffOdds > 50
+                makesPlayoffs: playoffOdds > 50,
             });
         }
 
-        return scenarios.sort((a, b) => b.wins - a.wins); // Order by wins descending
+        return scenarios.sort((a, b) => b.wins - a.wins);
     };
 
     // Calculate probability of winning exactly N additional games using binomial distribution
     const calculateWinProbability = (targetWins: number) => {
         if (!matchups.length) return 0;
-        
+
         const n = matchups.length;
         if (targetWins > n) return 0;
-        
+
         // Use individual game probabilities for more accurate calculation
-        const gameProbs = matchups.map(m => m.winProbability / 100);
-        
+        const gameProbs = matchups.map((m) => m.winProbability / 100);
+
         // For simplicity, use average probability with binomial distribution
         const avgProb = gameProbs.reduce((sum, p) => sum + p, 0) / n;
-        
+
         // Binomial coefficient
-        const binomialCoeff = factorial(n) / (factorial(targetWins) * factorial(n - targetWins));
-        
+        const binomialCoeff =
+            factorial(n) / (factorial(targetWins) * factorial(n - targetWins));
+
         // Binomial probability
-        return binomialCoeff * Math.pow(avgProb, targetWins) * Math.pow(1 - avgProb, n - targetWins);
+        return (
+            binomialCoeff *
+            Math.pow(avgProb, targetWins) *
+            Math.pow(1 - avgProb, n - targetWins)
+        );
     };
 
     // Helper function for factorial
@@ -161,19 +190,8 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
 
     // Calculate playoff odds based on final win total and league competition
     const calculatePlayoffOdds = (finalWins: number): number => {
-        // In a 12-team league, top 6 make playoffs
-        // Mathematical analysis of win thresholds:
-        // 14+ wins: 100% (impossible for 7+ teams to have 14+ wins)
-        // 13 wins: 99.9% (extremely unlikely scenario to miss)
-        // 12 wins: 99% (would need very unusual distribution)
-        // 11 wins: 95% (very rare to miss with 11+)
-        // 10 wins: 85% chance 
-        // 9 wins: 65% chance
-        // 8 wins: 35% chance
-        // 7 wins: 15% chance
-        // 6 wins: 5% chance
-        // 5 or fewer: 1% chance
-        
+        // this is an approximation and we will build a more accurate model later
+        // for now, we will use the same logic as the simulator
         if (finalWins >= 14) return 100;
         if (finalWins >= 13) return 99.9;
         if (finalWins >= 12) return 99;
@@ -191,7 +209,9 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
     return (
         <div className="bg-white rounded-xl shadow-xl p-6">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Playoff Maps</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    Playoff Maps
+                </h2>
                 <p className="text-gray-600">
                     Select an owner to see their path to the playoffs
                 </p>
@@ -208,7 +228,7 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
                     className="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
                 >
                     <option value="">Choose an owner...</option>
-                    {owners.map(owner => (
+                    {owners.map((owner) => (
                         <option key={owner.user_id} value={owner.user_id}>
                             {owner.display_name}
                         </option>
@@ -225,7 +245,9 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
             {loading && (
                 <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-                    <span className="ml-2 text-gray-600">Loading matchup map...</span>
+                    <span className="ml-2 text-gray-600">
+                        Loading matchup map...
+                    </span>
                 </div>
             )}
 
@@ -233,8 +255,12 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
                 <div className="space-y-6">
                     {/* Current Record */}
                     <div className="bg-gray-50 rounded-lg p-4">
-                        <h3 className="text-lg font-semibold mb-2">{selectedOwner.display_name}</h3>
-                        <p className="text-gray-600">Current Record: 0-0 (Week {currentWeek})</p>
+                        <h3 className="text-lg font-semibold mb-2">
+                            {selectedOwner.display_name}
+                        </h3>
+                        <p className="text-gray-600">
+                            Current Record: 0-0 (Week {currentWeek})
+                        </p>
                         <p className="text-sm text-gray-500 mt-1">
                             Need approximately 7 wins to make playoffs
                         </p>
@@ -242,25 +268,36 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
 
                     {/* Remaining Matchups */}
                     <div>
-                        <h4 className="text-lg font-semibold mb-4">Remaining Schedule</h4>
+                        <h4 className="text-lg font-semibold mb-4">
+                            Remaining Schedule
+                        </h4>
                         <div className="space-y-3">
                             {matchups.map((matchup, index) => (
-                                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div
+                                    key={index}
+                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                                >
                                     <div className="flex items-center space-x-4">
                                         <span className="text-sm font-medium text-gray-500">
                                             Week {matchup.week}
                                         </span>
-                                        <span className="font-medium">vs {matchup.opponent}</span>
+                                        <span className="font-medium">
+                                            vs {matchup.opponent}
+                                        </span>
                                     </div>
                                     <div className="flex items-center space-x-3">
-                                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                            matchup.winProbability >= 60 
-                                                ? 'bg-green-100 text-green-800'
-                                                : matchup.winProbability >= 40
-                                                ? 'bg-yellow-100 text-yellow-800'
-                                                : 'bg-red-100 text-red-800'
-                                        }`}>
-                                            {matchup.winProbability.toFixed(0)}% win chance
+                                        <span
+                                            className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                                matchup.winProbability >= 60
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : matchup.winProbability >=
+                                                      40
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : 'bg-red-100 text-red-800'
+                                            }`}
+                                        >
+                                            {matchup.winProbability.toFixed(0)}%
+                                            win chance
                                         </span>
                                     </div>
                                 </div>
@@ -271,47 +308,69 @@ export default function PlayoffMaps({ leagueId, currentWeek }: PlayoffMapsProps)
                     {/* Playoff Scenarios */}
                     {scenarios && (
                         <div>
-                            <h4 className="text-lg font-semibold mb-4">Playoff Scenarios</h4>
+                            <h4 className="text-lg font-semibold mb-4">
+                                Playoff Scenarios
+                            </h4>
                             <div className="grid gap-3">
                                 {scenarios
-                                    .filter(s => s.probability > 0.1)
+                                    .filter((s) => s.probability > 0.1)
                                     .map((scenario, index) => (
-                                    <div key={index} className={`p-4 rounded-lg border-2 ${
-                                        scenario.makesPlayoffs 
-                                            ? 'border-green-200 bg-green-50'
-                                            : 'border-red-200 bg-red-50'
-                                    }`}>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">
-                                                    Win {scenario.wins} of {matchups.length} remaining games
-                                                </span>
-                                                <span className="text-sm text-gray-600">
-                                                    Final record: {scenario.totalWins}-{17 - scenario.totalWins}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center space-x-3">
-                                                <div className="text-right">
-                                                    <div className="text-sm text-gray-600">
-                                                        {scenario.probability.toFixed(1)}% chance
-                                                    </div>
-                                                    <div className="text-xs text-gray-500">
-                                                        of this outcome
-                                                    </div>
+                                        <div
+                                            key={index}
+                                            className={`p-4 rounded-lg border-2 ${
+                                                scenario.makesPlayoffs
+                                                    ? 'border-green-200 bg-green-50'
+                                                    : 'border-red-200 bg-red-50'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">
+                                                        Win {scenario.wins} of{' '}
+                                                        {matchups.length}{' '}
+                                                        remaining games
+                                                    </span>
+                                                    <span className="text-sm text-gray-600">
+                                                        Final record:{' '}
+                                                        {scenario.totalWins}-
+                                                        {17 -
+                                                            scenario.totalWins}
+                                                    </span>
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className={`px-3 py-1 text-sm font-semibold rounded-full ${
-                                                        scenario.playoffOdds >= 70 ? 'bg-green-100 text-green-800' :
-                                                        scenario.playoffOdds >= 30 ? 'bg-yellow-100 text-yellow-800' :
-                                                        'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {scenario.playoffOdds}% playoffs
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="text-right">
+                                                        <div className="text-sm text-gray-600">
+                                                            {scenario.probability.toFixed(
+                                                                1
+                                                            )}
+                                                            % chance
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">
+                                                            of this outcome
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div
+                                                            className={`px-3 py-1 text-sm font-semibold rounded-full ${
+                                                                scenario.playoffOdds >=
+                                                                70
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : scenario.playoffOdds >=
+                                                                      30
+                                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                                    : 'bg-red-100 text-red-800'
+                                                            }`}
+                                                        >
+                                                            {
+                                                                scenario.playoffOdds
+                                                            }
+                                                            % playoffs
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
                             </div>
                         </div>
                     )}
