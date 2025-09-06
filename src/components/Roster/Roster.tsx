@@ -86,6 +86,19 @@ export default function Roster({
     const rosterData = propRosterData;
     const userData = propUserData;
 
+    // Helper function to shorten player names for mobile
+    const shortenPlayerName = (fullName: string): string => {
+        if (!fullName || fullName.includes('Defense')) return fullName;
+
+        const parts = fullName.trim().split(' ');
+        if (parts.length < 2) return fullName;
+
+        const firstName = parts[0];
+        const lastName = parts[parts.length - 1];
+
+        return `${firstName.charAt(0)}.${lastName}`;
+    };
+
     // Fetch fantasy player data
     useEffect(() => {
         const fetchPlayerFantasyData = async (): Promise<void> => {
@@ -317,35 +330,42 @@ export default function Roster({
                             className="bg-white rounded-lg shadow-md border border-green-200 overflow-hidden mb-4"
                         >
                             <div className="bg-gradient-to-r from-green-600 via-green-500 to-green-400 px-4 py-3">
-                                <h4 className="text-lg font-semibold text-white">
+                                <h4 className="text-sm font-semibold text-white ">
                                     {(() => {
                                         const owner = userData?.find(
                                             (user) =>
                                                 user.user_id === roster.owner_id
                                         );
-                                        return owner
-                                            ? ` ${owner.display_name} (${
-                                                  owner.metadata.team_name ??
-                                                  'Team ' + owner.display_name
-                                              })`
-                                            : '';
+                                        return owner ? (
+                                            <>
+                                                {owner.metadata.team_name ??
+                                                    'Team ' +
+                                                        owner.display_name}
+                                                <small>
+                                                    {' '}
+                                                    ({owner.display_name})
+                                                </small>
+                                            </>
+                                        ) : (
+                                            ''
+                                        );
                                     })()}
                                 </h4>
                             </div>
 
-                            <div className="p-4">
-                                <div className="space-y-3">
+                            <div className="p-2 sm:p-4">
+                                <div className="space-y-1 sm:space-y-3">
                                     {startingLineup.map((player, index) => {
                                         return (
                                             <div
                                                 key={`${player.playerId}-${index}`}
-                                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                                                className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                                             >
-                                                <div className="flex items-center space-x-3">
+                                                <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
                                                     <div className="flex-shrink-0">
                                                         {player.fantasyPlayer ? (
                                                             <span
-                                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPositionColor(
+                                                                className={`inline-flex items-center px-1.5 py-0.5 sm:px-2.5 rounded-full text-xs ${getPositionColor(
                                                                     player
                                                                         .fantasyPlayer
                                                                         .Position
@@ -358,27 +378,36 @@ export default function Roster({
                                                                 }
                                                             </span>
                                                         ) : (
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2.5 rounded-full text-xs bg-gray-100 text-gray-800">
                                                                 DEF
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-gray-900">
-                                                            {player
-                                                                .fantasyPlayer
-                                                                ?.Name ||
-                                                                `Defense (${player.playerId})`}
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-xs sm:text-sm text-gray-900 truncate">
+                                                            <span className="sm:hidden">
+                                                                {shortenPlayerName(
+                                                                    player
+                                                                        .fantasyPlayer
+                                                                        ?.Name ||
+                                                                        `Defense (${player.playerId})`
+                                                                )}
+                                                            </span>
+                                                            <span className="hidden sm:inline">
+                                                                {player
+                                                                    .fantasyPlayer
+                                                                    ?.Name ||
+                                                                    `Defense (${player.playerId})`}
+                                                            </span>
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                <div className="text-right">
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                                <div className="text-right flex-shrink-0 ml-2">
+                                                    <span className="inline-flex items-center px-2 py-1 sm:px-3 rounded-full text-xs sm:text-sm bg-green-100 text-green-800">
                                                         {player.projectedPoints.toFixed(
                                                             2
-                                                        )}{' '}
-                                                        pts
+                                                        )}
                                                     </span>
                                                 </div>
                                             </div>

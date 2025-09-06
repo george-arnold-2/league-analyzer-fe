@@ -62,7 +62,7 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
     useEffect(() => {
         const fetchRoster = async () => {
             if (!leagueId) return;
-            
+
             try {
                 const res = await fetch(
                     `https://api.sleeper.app/v1/league/${leagueId}/rosters`
@@ -81,7 +81,7 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
     useEffect(() => {
         const fetchUsers = async () => {
             if (!leagueId) return;
-            
+
             try {
                 const res = await fetch(
                     `https://api.sleeper.app/v1/league/${leagueId}/users`
@@ -186,9 +186,9 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
     );
 
     return (
-        <div className="p-6">
+        <div className="p-0 md:p-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-green-600 via-green-500 to-green-400 px-6 py-4 -mx-6 -mt-6 mb-6">
+            <div className="bg-gradient-to-r from-green-600 via-green-500 to-green-400 px-6 py-4 - mt-6 mb-6">
                 <h2 className="text-2xl font-bold text-white flex items-center">
                     <svg
                         className="w-6 h-6 mr-2"
@@ -237,7 +237,7 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                     {groupedMatchups.map((matchup, i) => (
                         <div
                             key={i} // React needs a unique key for each item in a list
-                            className="bg-gray-50 rounded-xl p-6 shadow-sm"
+                            className="bg-gray-50 rounded-xl p-2 md:p-6 shadow-sm"
                         >
                             {/* Matchup Header */}
                             <div className="mb-6">
@@ -249,22 +249,17 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                                 <div className="h-px bg-gradient-to-r from-green-200 via-green-300 to-green-200"></div>
                             </div>
 
-                            {/* Rosters Grid */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Rosters Grid - Always show side by side, even on mobile */}
+                            <div className="grid grid-cols-2 gap-2 sm:gap-6">
                                 {/* First roster in the matchup */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <span
-                                            id="matchup-total"
-                                            className="text-lg font-bold text-green-600"
-                                        >
-                                            {/* Conditional rendering: show calculated total if available, otherwise show original points */}
+                                <div className="space-y-1 sm:space-y-2">
+                                    <div className="flex items-center justify-center sm:justify-between">
+                                        <span className="text-sm sm:text-lg text-green-600">
                                             {rosterTotals[matchup.rosters[0]]
                                                 ? `${rosterTotals[
                                                       matchup.rosters[0]
-                                                  ].toFixed(2)} pts` // Calculated projection total
-                                                : `${matchup.points[0]} pts`}{' '}
-                                            {/* Original points from API */}
+                                                  ].toFixed(2)}`
+                                                : `${matchup.points[0]}`}
                                         </span>
                                     </div>
                                     <Roster
@@ -278,18 +273,16 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                                 </div>
 
                                 {/* Second roster in the matchup */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-lg font-bold text-green-600">
+                                <div className="space-y-1 sm:space-y-2">
+                                    <div className="flex items-center justify-center sm:justify-between">
+                                        <span className="text-sm sm:text-lg text-green-600">
                                             {rosterTotals[matchup.rosters[1]]
                                                 ? `${rosterTotals[
                                                       matchup.rosters[1]
-                                                  ].toFixed(2)} pts` // Calculated projection total
-                                                : `${matchup.points[1]} pts`}{' '}
-                                            {/* Original points from API */}
+                                                  ].toFixed(2)}`
+                                                : `${matchup.points[1]}`}
                                         </span>
                                     </div>
-                                    {/* Render the Roster component for the second team */}
                                     <Roster
                                         leagueId={leagueId}
                                         matchupRoster={matchup.rosters[1]}

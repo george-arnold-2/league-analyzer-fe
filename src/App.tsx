@@ -2,6 +2,7 @@ import LeagueInput from './components/LeagueInput/LeagueInput';
 import Schedule from './components/Schedule/Schedule';
 import PlayoffSimulator from './components/PlayoffSimulator/PlayoffSimulator';
 import React, { useState, useEffect } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 type ViewMode = 'weekly' | 'simulation';
 
@@ -40,7 +41,7 @@ export default function App(): React.JSX.Element {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-700 via-green-600 to-green-500 text-gray-700 ">
-            <div className="container mx-auto px-4 py-8">
+            <div className="container mx-auto px-2 md:px-4 py-8">
                 {/* Header Section */}
                 <div className="text-center mb-8">
                     <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
@@ -77,8 +78,18 @@ export default function App(): React.JSX.Element {
                                 }`}
                             >
                                 <div className="flex items-center justify-center">
-                                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    <svg
+                                        className="w-5 h-5 mr-2"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                        />
                                     </svg>
                                     Weekly View
                                 </div>
@@ -92,8 +103,18 @@ export default function App(): React.JSX.Element {
                                 }`}
                             >
                                 <div className="flex items-center justify-center">
-                                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    <svg
+                                        className="w-5 h-5 mr-2"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                        />
                                     </svg>
                                     Season Simulation
                                 </div>
@@ -104,48 +125,74 @@ export default function App(): React.JSX.Element {
 
                 {/* Week Selector - Only show in weekly mode */}
                 {leagueId && viewMode === 'weekly' && (
-                    <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-6 max-w-md mx-auto">
-                        <label className="block text-sm font-medium mb-2">
-                            Select Week
-                        </label>
-                        <div className="relative">
-                            <input
-                                type="number"
-                                min={1}
-                                max={18}
-                                value={week}
-                                onChange={(e) =>
-                                    setWeek(Number(e.target.value))
-                                }
-                                className="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
-                                placeholder="Enter week number"
-                            />
-                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                <svg
-                                    className="w-5 h-5 text-gray-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
+                    <div className="p-4 md:p-6 bg-gray-50">
+                        <div className="max-w-md mx-auto">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                Select Week
+                            </h2>
+
+                            <div className="relative">
+                                <select
+                                    value={week}
+                                    onChange={(e) =>
+                                        setWeek(Number(e.target.value))
+                                    }
+                                    className="block w-full px-10 py-3 pr-12 text-base bg-white border border-gray-300 rounded-lg shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 cursor-pointer hover:border-gray-400"
                                 >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                    />
-                                </svg>
+                                    {Array.from(
+                                        { length: 18 },
+                                        (_, i) => i + 1
+                                    ).map((weekNum) => (
+                                        <option key={weekNum} value={weekNum}>
+                                            Week {weekNum}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {/* Custom dropdown arrow */}
+                                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                    <ChevronDown className="w-5 h-5 text-gray-400 transition-transform duration-200" />
+                                </div>
+
+                                {/* Calendar icon */}
+                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <svg
+                                        className="w-5 h-5 text-gray-400"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                        />
+                                    </svg>
+                                </div>
                             </div>
+
+                            {/* Display selected value */}
+                            <p className="mt-4 text-sm text-gray-600">
+                                Selected:{' '}
+                                <span className="font-semibold text-gray-800">
+                                    Week {week}
+                                </span>
+                            </p>
                         </div>
                     </div>
                 )}
 
                 {/* Content Section */}
                 {leagueId && (
-                    <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-xl">
                         {viewMode === 'weekly' ? (
                             <Schedule leagueId={leagueId} week={week} />
                         ) : (
-                            <PlayoffSimulator leagueId={leagueId} currentWeek={week} />
+                            <PlayoffSimulator
+                                leagueId={leagueId}
+                                currentWeek={week}
+                            />
                         )}
                     </div>
                 )}
