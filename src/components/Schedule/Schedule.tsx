@@ -8,24 +8,47 @@ interface Matchup {
     players: string[];
 }
 
+// TypeScript interface defining what props (inputs) this component expects
 interface ScheduleProps {
     leagueId: string;
     week: number;
+}
+
+// Main Schedule component function - displays all matchups for a given week
+interface RosterData {
+    roster_id: number;
+    players: string[];
+    owner_id: string;
+}
+
+interface UserData {
+    user_id: string;
+    display_name: string;
+    metadata: {
+        team_name: string;
+    };
 }
 
 export default function Schedule({ leagueId, week }: ScheduleProps) {
     const [matchups, setMatchups] = useState<Matchup[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
+    // Stores calculated total points for each roster
     const [rosterTotals, setRosterTotals] = useState<Record<string, number>>(
         {}
     );
+    // Add roster and user data to Schedule component
+    const [rosterData, setRosterData] = useState<RosterData[] | null>(null);
+    const [userData, setUserData] = useState<UserData[] | null>(null);
 
     const handleRosterTotalUpdate = useCallback(
         (rosterName: string, total: number) => {
             setRosterTotals((prev) => {
-                // Avoid unnecessary state updates
+                // Performance optimization: don't update if the value hasn't changed
                 if (prev[rosterName] === total) return prev;
+
+                // Spread operator (...) creates a new object with all previous values
+                // plus the new/updated value for this roster
                 return {
                     ...prev,
                     [rosterName]: total,
@@ -34,6 +57,44 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
         },
         []
     );
+
+    // Fetch roster data once for all components
+    useEffect(() => {
+        const fetchRoster = async () => {
+            if (!leagueId) return;
+            
+            try {
+                const res = await fetch(
+                    `https://api.sleeper.app/v1/league/${leagueId}/rosters`
+                );
+                if (!res.ok) throw new Error('Rosters not found');
+                const data = (await res.json()) as RosterData[];
+                setRosterData(data);
+            } catch (err) {
+                console.error('Error fetching rosters:', err);
+            }
+        };
+        fetchRoster();
+    }, [leagueId]);
+
+    // Fetch user data once for all components
+    useEffect(() => {
+        const fetchUsers = async () => {
+            if (!leagueId) return;
+            
+            try {
+                const res = await fetch(
+                    `https://api.sleeper.app/v1/league/${leagueId}/users`
+                );
+                if (!res.ok) throw new Error('Users not found');
+                const data = (await res.json()) as UserData[];
+                setUserData(data);
+            } catch (err) {
+                console.error('Error fetching users:', err);
+            }
+        };
+        fetchUsers();
+    }, [leagueId]);
 
     useEffect(() => {
         const fetchMatchups = async () => {
@@ -57,7 +118,7 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                 if (err instanceof Error) {
                     setError(err.message);
                 } else {
-                    setError('Unknown error fetching matchups.');
+                    setError('Unknown error fetching matchups.'); // Fallback message
                 }
             } finally {
                 setLoading(false);
@@ -107,13 +168,17 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
         );
     }
 
+    // Transform the flat array of matchups into grouped matchups
+    // Each matchup has 2 rosters, but the API returns them as separate objects with the same matchup_id
     const groupedMatchups = Object.values(
         matchups.reduce<
             Record<string, { rosters: string[]; points: number[] }>
         >((acc, m) => {
+            // If we haven't seen this matchup_id before, create a new entry
             if (!acc[m.matchup_id]) {
                 acc[m.matchup_id] = { rosters: [], points: [] };
             }
+            // Add this roster and its points to the matchup group
             acc[m.matchup_id].rosters.push(`Roster ${m.roster_id}`);
             acc[m.matchup_id].points.push(m.points);
             return acc;
@@ -142,6 +207,7 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                 </h2>
             </div>
 
+            {/* Conditional rendering: show different content based on whether we have matchups */}
             {matchups.length === 0 ? (
                 <div className="text-center py-12">
                     <svg
@@ -165,10 +231,12 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                     </p>
                 </div>
             ) : (
+                // If we have matchups, show them
                 <div className="space-y-8">
+                    {/* Loop through each grouped matchup and render it */}
                     {groupedMatchups.map((matchup, i) => (
                         <div
-                            key={i}
+                            key={i} // React needs a unique key for each item in a list
                             className="bg-gray-50 rounded-xl p-6 shadow-sm"
                         >
                             {/* Matchup Header */}
@@ -183,17 +251,20 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
 
                             {/* Rosters Grid */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* First roster in the matchup */}
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <span
                                             id="matchup-total"
                                             className="text-lg font-bold text-green-600"
                                         >
+                                            {/* Conditional rendering: show calculated total if available, otherwise show original points */}
                                             {rosterTotals[matchup.rosters[0]]
                                                 ? `${rosterTotals[
                                                       matchup.rosters[0]
-                                                  ].toFixed(2)} pts`
-                                                : `${matchup.points[0]} pts`}
+                                                  ].toFixed(2)} pts` // Calculated projection total
+                                                : `${matchup.points[0]} pts`}{' '}
+                                            {/* Original points from API */}
                                         </span>
                                     </div>
                                     <Roster
@@ -201,24 +272,31 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                                         matchupRoster={matchup.rosters[0]}
                                         rosterName={matchup.rosters[0]}
                                         onTotalUpdate={handleRosterTotalUpdate}
+                                        rosterData={rosterData}
+                                        userData={userData}
                                     />
                                 </div>
 
+                                {/* Second roster in the matchup */}
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <span className="text-lg font-bold text-green-600">
                                             {rosterTotals[matchup.rosters[1]]
                                                 ? `${rosterTotals[
                                                       matchup.rosters[1]
-                                                  ].toFixed(2)} pts`
-                                                : `${matchup.points[1]} pts`}
+                                                  ].toFixed(2)} pts` // Calculated projection total
+                                                : `${matchup.points[1]} pts`}{' '}
+                                            {/* Original points from API */}
                                         </span>
                                     </div>
+                                    {/* Render the Roster component for the second team */}
                                     <Roster
                                         leagueId={leagueId}
                                         matchupRoster={matchup.rosters[1]}
                                         rosterName={matchup.rosters[1]}
                                         onTotalUpdate={handleRosterTotalUpdate}
+                                        rosterData={rosterData}
+                                        userData={userData}
                                     />
                                 </div>
                             </div>

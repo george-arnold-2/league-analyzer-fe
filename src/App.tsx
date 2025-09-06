@@ -1,10 +1,14 @@
 import LeagueInput from './components/LeagueInput/LeagueInput';
 import Schedule from './components/Schedule/Schedule';
+import PlayoffSimulator from './components/PlayoffSimulator/PlayoffSimulator';
 import React, { useState, useEffect } from 'react';
+
+type ViewMode = 'weekly' | 'simulation';
 
 export default function App(): React.JSX.Element {
     const [leagueId, setLeagueId] = useState<string>('');
     const [week, setWeek] = useState<number>(1);
+    const [viewMode, setViewMode] = useState<ViewMode>('weekly');
 
     // Load saved values if they exist
     useEffect(() => {
@@ -60,8 +64,46 @@ export default function App(): React.JSX.Element {
                     />
                 </div>
 
-                {/* Week Selector */}
+                {/* Mode Selection */}
                 {leagueId && (
+                    <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-6 max-w-2xl mx-auto">
+                        <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+                            <button
+                                onClick={() => setViewMode('weekly')}
+                                className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
+                                    viewMode === 'weekly'
+                                        ? 'bg-green-600 text-white shadow-lg'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                            >
+                                <div className="flex items-center justify-center">
+                                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Weekly View
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('simulation')}
+                                className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
+                                    viewMode === 'simulation'
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                            >
+                                <div className="flex items-center justify-center">
+                                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                    Season Simulation
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Week Selector - Only show in weekly mode */}
+                {leagueId && viewMode === 'weekly' && (
                     <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-6 max-w-md mx-auto">
                         <label className="block text-sm font-medium mb-2">
                             Select Week
@@ -97,10 +139,14 @@ export default function App(): React.JSX.Element {
                     </div>
                 )}
 
-                {/* Schedule Section */}
+                {/* Content Section */}
                 {leagueId && (
                     <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-                        <Schedule leagueId={leagueId} week={week} />
+                        {viewMode === 'weekly' ? (
+                            <Schedule leagueId={leagueId} week={week} />
+                        ) : (
+                            <PlayoffSimulator leagueId={leagueId} currentWeek={week} />
+                        )}
                     </div>
                 )}
             </div>
