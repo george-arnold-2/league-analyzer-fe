@@ -4,5 +4,5 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ command }) => ({
     plugins: [react(), tailwindcss()],
-    base: command === 'build' ? '/league-analyzer/' : '/',
+    base: command === 'build' ? '/league-analyzer-fe/' : '/',
 }));
