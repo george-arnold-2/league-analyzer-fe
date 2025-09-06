@@ -7,13 +7,18 @@ import React, { useState, useEffect } from 'react';
 export default function App(): React.JSX.Element {
     const [leagueId, setLeagueId] = useState<string>('');
     const [week, setWeek] = useState<number>(1);
-    const [activeTab, setActiveTab] = useState<'schedule' | 'playoffs' | 'maps'>('schedule');
+    const [activeTab, setActiveTab] = useState<
+        'schedule' | 'playoffs' | 'maps'
+    >('schedule');
 
     // Load saved values if they exist
     useEffect(() => {
         const savedLeagueId = sessionStorage.getItem('leagueId');
         const savedWeek = sessionStorage.getItem('week');
-        const savedTab = sessionStorage.getItem('activeTab') as 'schedule' | 'playoffs' | 'maps';
+        const savedTab = sessionStorage.getItem('activeTab') as
+            | 'schedule'
+            | 'playoffs'
+            | 'maps';
 
         if (savedLeagueId) {
             setLeagueId(savedLeagueId);
@@ -57,7 +62,7 @@ export default function App(): React.JSX.Element {
                         <p className="text-green-100 text-sm">
                             For testing purposes use:
                             <span className="font-mono bg-white/20 px-2 py-1 rounded ml-2">
-                                1259966529118674944
+                                1258107226489360384
                             </span>
                         </p>
                     </div>
@@ -106,7 +111,7 @@ export default function App(): React.JSX.Element {
                                 Playoff Maps
                             </button>
                         </div>
-                        
+
                         {/* Week Selector - only show for schedule tab */}
                         {activeTab === 'schedule' && (
                             <div>
@@ -152,9 +157,15 @@ export default function App(): React.JSX.Element {
                         {activeTab === 'schedule' ? (
                             <Schedule leagueId={leagueId} week={week} />
                         ) : activeTab === 'playoffs' ? (
-                            <PlayoffSimulator leagueId={leagueId} currentWeek={week} />
+                            <PlayoffSimulator
+                                leagueId={leagueId}
+                                currentWeek={week}
+                            />
                         ) : (
-                            <PlayoffMaps leagueId={leagueId} currentWeek={week} />
+                            <PlayoffMaps
+                                leagueId={leagueId}
+                                currentWeek={week}
+                            />
                         )}
                     </div>
                 )}
