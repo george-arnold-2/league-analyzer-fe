@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../../config/supabaseClient';
 
 interface RosterData {
     roster_id: number;
@@ -16,10 +15,12 @@ interface UserData {
 }
 
 interface RosterProps {
-    leagueId: string;
     matchupRoster: string;
     rosterName?: string;
     onTotalUpdate?: (rosterName: string, total: number) => void;
+    rosters: RosterData[] | null;
+    users: UserData[] | null;
+    fantasyPlayers: Record<string, FantasyPlayer>;
 }
 
 interface FantasyPlayer {
@@ -79,120 +80,33 @@ function getRandomProjection(base: number) {
     return result.toFixed(2);
 }
 export default function Roster({
-    leagueId,
     matchupRoster,
     rosterName,
     onTotalUpdate,
+    rosters,
+    users,
+    fantasyPlayers,
 }: RosterProps) {
-    const [rosterData, setRosterData] = useState<RosterData[] | null>(null);
-    const [userData, setUserData] = useState<UserData[] | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [fantasyPlayerLookup, setFantasyPlayerLookup] = useState<
-        Record<string, FantasyPlayer>
-    >({});
     const [playerProjections, setPlayerProjections] = useState<
         Record<string, number>
     >({});
 
-    // Fetch roster data from Sleeper API
-    useEffect(() => {
-        const fetchRoster = async (): Promise<void> => {
-            try {
-                const res = await fetch(
-                    `https://api.sleeper.app/v1/league/${leagueId}/rosters`
-                );
-                if (!res.ok) throw new Error('Rosters not found');
-                const data = (await res.json()) as RosterData[];
-                setRosterData(data);
-
-                console.log(data, 'roster data');
-            } catch (err) {
-                const msg =
-                    err instanceof Error ? err.message : 'Unknown error';
-                setError(msg);
-                // console.error('Error fetching rosters:', err);
-            }
-        };
-        fetchRoster();
-    }, [leagueId]);
-
-    // Fetch user data from Sleeper API
-    useEffect(() => {
-        const fetchUsers = async (): Promise<void> => {
-            try {
-                const res = await fetch(
-                    `https://api.sleeper.app/v1/league/${leagueId}/users`
-                );
-                if (!res.ok) throw new Error('Users not found');
-                const data = (await res.json()) as UserData[];
-                setUserData(data);
-                // console.log(data, 'userData');
-            } catch (err) {
-                const msg =
-                    err instanceof Error ? err.message : 'Unknown error';
-                setError(msg);
-                console.error('Error fetching rosters:', err);
-            }
-        };
-        fetchUsers();
-    }, [leagueId]);
-
-    // Fetch fantasy player data
-    useEffect(() => {
-        const fetchPlayerFantasyData = async (): Promise<void> => {
-            if (!rosterData) return;
-
-            setLoading(true);
-            setError(null);
-
-            try {
-                const { data: allFantasyPlayers, error } = await supabase
-                    .from('fantasy_data')
-                    .select('*');
-
-                if (error) {
-                    throw new Error(`Error fetching players: ${error.message}`);
-                }
-
-                const lookup = allFantasyPlayers.reduce<
-                    Record<string, FantasyPlayer>
-                >((acc, player) => {
-                    acc[player.ID] = player;
-                    return acc;
-                }, {});
-
-                setFantasyPlayerLookup(lookup);
-            } catch (err) {
-                const msg =
-                    err instanceof Error ? err.message : 'Unknown error';
-                setError(msg);
-                console.error('Error fetching fantasy players:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchPlayerFantasyData();
-    }, [rosterData]);
 
     // Generate random projections once when fantasy data is loaded
     useEffect(() => {
-        // console.log('Generating player projections...');
-        // console.log(rosterData, fantasyPlayerLookup);
         if (
-            rosterData &&
-            fantasyPlayerLookup &&
-            Object.keys(fantasyPlayerLookup).length > 0
+            rosters &&
+            fantasyPlayers &&
+            Object.keys(fantasyPlayers).length > 0
         ) {
             const projections: Record<string, number> = {};
             console.log('Generating playerdata');
 
-            rosterData.forEach((roster) => {
+            rosters.forEach((roster) => {
                 roster.players.forEach((playerId) => {
                     console.log(playerId, 'playerId');
                     if (!projections[playerId]) {
-                        const fantasyPlayer = fantasyPlayerLookup[playerId];
+                        const fantasyPlayer = fantasyPlayers[playerId];
                         const base = fantasyPlayer
                             ? fantasyPlayer['Projected Points'] / 17
                             : 0;
@@ -205,7 +119,7 @@ export default function Roster({
 
             setPlayerProjections(projections);
         }
-    }, [rosterData, fantasyPlayerLookup]);
+    }, [rosters, fantasyPlayers]);
 
     // Position color mapping
     const getPositionColor = (position: string) => {
@@ -242,7 +156,7 @@ export default function Roster({
                 'K',
             ];
             const playersWithProjections = players.map((playerId) => {
-                const fantasyPlayer = fantasyPlayerLookup[playerId];
+                const fantasyPlayer = fantasyPlayers[playerId];
                 const projectedPoints = playerProjections[playerId] || 0;
 
                 return {
@@ -286,7 +200,7 @@ export default function Roster({
 
             return startingLineup;
         },
-        [fantasyPlayerLookup, playerProjections]
+        [fantasyPlayers, playerProjections]
     );
 
     // Calculate total projection for starting lineup
@@ -304,11 +218,11 @@ export default function Roster({
     // Update parent component with total projection
     useEffect(() => {
         if (
-            rosterData &&
-            fantasyPlayerLookup &&
-            Object.keys(fantasyPlayerLookup).length > 0
+            rosters &&
+            fantasyPlayers &&
+            Object.keys(fantasyPlayers).length > 0
         ) {
-            rosterData.forEach((roster, i) => {
+            rosters.forEach((roster, i) => {
                 const matchupRosterNumber = Number(
                     matchupRoster.replace(/\D/g, '')
                 );
@@ -327,8 +241,8 @@ export default function Roster({
             });
         }
     }, [
-        rosterData,
-        fantasyPlayerLookup,
+        rosters,
+        fantasyPlayers,
         matchupRoster,
         rosterName,
         onTotalUpdate,
@@ -337,29 +251,9 @@ export default function Roster({
 
     return (
         <div className="w-full">
-            {loading && (
-                <div className="flex items-center justify-center p-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
-                    <span className="ml-2 text-green-700">
-                        Loading fantasy data...
-                    </span>
-                </div>
-            )}
 
-            {error && (
-                <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-                    <div className="flex">
-                        <div className="ml-3">
-                            <p className="text-sm text-red-700">
-                                Error: {error}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {rosterData &&
-                rosterData.map((roster, i) => {
+            {rosters &&
+                rosters.map((roster, i) => {
                     const matchupRosterNumber = Number(
                         matchupRoster.replace(/\D/g, '')
                     );
@@ -376,7 +270,7 @@ export default function Roster({
                             <div className="bg-gradient-to-r from-green-600 via-green-500 to-green-400 px-4 py-3">
                                 <h4 className="text-lg font-semibold text-white">
                                     {(() => {
-                                        const owner = userData?.find(
+                                        const owner = users?.find(
                                             (user) =>
                                                 user.user_id === roster.owner_id
                                         );

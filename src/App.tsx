@@ -3,6 +3,7 @@ import Schedule from './components/Schedule/Schedule';
 import PlayoffSimulator from './components/PlayoffSimulator/PlayoffSimulator';
 import PlayoffMaps from './components/PlayoffMaps/PlayoffMaps';
 import React, { useState, useEffect } from 'react';
+import { useLeagueData } from './hooks/useLeagueData';
 
 export default function App(): React.JSX.Element {
     const [leagueId, setLeagueId] = useState<string>('');
@@ -10,6 +11,9 @@ export default function App(): React.JSX.Element {
     const [activeTab, setActiveTab] = useState<
         'schedule' | 'playoffs' | 'maps'
     >('schedule');
+
+    // Fetch shared league data once at the app level
+    const { rosters, users, fantasyPlayers, loading: leagueDataLoading, error: leagueDataError } = useLeagueData(leagueId);
 
     // Load saved values if they exist
     useEffect(() => {
@@ -75,6 +79,7 @@ export default function App(): React.JSX.Element {
                         initialLeagueId={leagueId}
                     />
                 </div>
+
 
                 {/* Navigation Tabs */}
                 {leagueId && (
@@ -154,12 +159,36 @@ export default function App(): React.JSX.Element {
                 {/* Content Section */}
                 {leagueId && (
                     <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-                        {activeTab === 'schedule' ? (
-                            <Schedule leagueId={leagueId} week={week} />
+                        {leagueDataLoading ? (
+                            <div className="p-8">
+                                <div className="flex items-center justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                                    <span className="ml-3 text-lg text-gray-700">
+                                        Loading league data...
+                                    </span>
+                                </div>
+                            </div>
+                        ) : leagueDataError ? (
+                            <div className="p-6">
+                                <div className="bg-red-50 border-l-4 border-red-400 p-4">
+                                    <p className="text-red-700">{leagueDataError}</p>
+                                </div>
+                            </div>
+                        ) : activeTab === 'schedule' ? (
+                            <Schedule 
+                                leagueId={leagueId} 
+                                week={week}
+                                rosters={rosters}
+                                users={users}
+                                fantasyPlayers={fantasyPlayers}
+                            />
                         ) : activeTab === 'playoffs' ? (
                             <PlayoffSimulator
                                 leagueId={leagueId}
                                 currentWeek={week}
+                                rosters={rosters}
+                                users={users}
+                                fantasyPlayers={fantasyPlayers}
                             />
                         ) : (
                             <PlayoffMaps

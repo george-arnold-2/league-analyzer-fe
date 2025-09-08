@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabase } from '../../config/supabaseClient.js';
 
 // Types for simulation data
 interface SimulationResult {
@@ -22,14 +21,41 @@ interface TeamRecord {
     playoffOdds: number;
 }
 
+interface RosterData {
+    roster_id: number;
+    players: string[];
+    owner_id: string;
+}
+
+interface UserData {
+    user_id: string;
+    display_name: string;
+    metadata: {
+        team_name: string;
+    };
+}
+
+interface FantasyPlayer {
+    Name: string;
+    Position: string;
+    'Projected Points': number;
+    ID: string;
+}
+
 interface PlayoffSimulatorProps {
     leagueId: string;
     currentWeek: number;
+    rosters: RosterData[] | null;
+    users: UserData[] | null;
+    fantasyPlayers: Record<string, FantasyPlayer>;
 }
 
 export default function PlayoffSimulator({
     leagueId,
     currentWeek,
+    rosters,
+    users,
+    fantasyPlayers,
 }: PlayoffSimulatorProps) {
     const [isSimulating, setIsSimulating] = useState(false);
     const [simulationResults, setSimulationResults] = useState<{
@@ -38,57 +64,17 @@ export default function PlayoffSimulator({
     } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // State removed - data is fetched directly in simulation function
-
-    // Fetch roster data from Sleeper API
-    const fetchRosterData = async () => {
-        const res = await fetch(
-            `https://api.sleeper.app/v1/league/${leagueId}/rosters`
-        );
-        const data = await res.json();
-        return data;
-    };
-
-    // Fetch user data from Sleeper API
-    const fetchUserData = async () => {
-        const res = await fetch(
-            `https://api.sleeper.app/v1/league/${leagueId}/users`
-        );
-        const data = await res.json();
-        return data;
-    };
-
-    // Fetch fantasy player data
-    const fetchFantasyPlayerData = async () => {
-        const { data: allFantasyPlayers, error } = await supabase
-            .from('players')
-            .select('*');
-
-        if (error) {
-            throw new Error(`Error fetching players: ${error.message}`);
-        }
-
-        const lookup = (allFantasyPlayers || []).reduce(
-            (acc: any, player: any) => {
-                acc[player.ID] = player;
-                return acc;
-            },
-            {}
-        );
-
-        return lookup;
-    };
 
     // Get team name from roster ID
     const getTeamName = (
         rosterId: number,
-        rosters: any[],
-        users: any[]
+        rostersData: RosterData[],
+        usersData: UserData[]
     ): string => {
-        const roster = rosters.find((r) => r.roster_id === rosterId);
+        const roster = rostersData.find((r) => r.roster_id === rosterId);
         if (!roster) return `Team ${rosterId}`;
 
-        const user = users.find((u) => u.user_id === roster.owner_id);
+        const user = usersData.find((u) => u.user_id === roster.owner_id);
         return user ? user.display_name : `Team ${rosterId}`;
     };
 
@@ -116,7 +102,7 @@ export default function PlayoffSimulator({
     // Get starting lineup (similar to existing Roster component logic)
     const getStartingLineup = (
         playerIds: string[],
-        playerLookup: Record<string, any>
+        playerLookup: Record<string, FantasyPlayer>
     ) => {
         const positionOrder = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'DEF', 'K'];
 
@@ -172,7 +158,7 @@ export default function PlayoffSimulator({
     // Calculate team score using random projections
     const calculateTeamScore = (
         playerIds: string[],
-        playerLookup: Record<string, any>
+        playerLookup: Record<string, FantasyPlayer>
     ): number => {
         const startingLineup = getStartingLineup(playerIds, playerLookup);
         return startingLineup.reduce((total, player) => {
@@ -188,11 +174,11 @@ export default function PlayoffSimulator({
     const simulateMatchup = (
         team1RosterId: number,
         team2RosterId: number,
-        rosters: any[],
-        playerLookup: Record<string, any>
+        rostersData: RosterData[],
+        playerLookup: Record<string, FantasyPlayer>
     ): { team1Score: number; team2Score: number } => {
-        const team1Roster = rosters.find((r) => r.roster_id === team1RosterId);
-        const team2Roster = rosters.find((r) => r.roster_id === team2RosterId);
+        const team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
+        const team2Roster = rostersData.find((r) => r.roster_id === team2RosterId);
 
         const team1Score = calculateTeamScore(
             team1Roster?.players || [],
@@ -269,9 +255,9 @@ export default function PlayoffSimulator({
 
     // Main simulation function using probabilistic approach
     const runSeasonSimulation = async (
-        rosters: any[],
-        users: any[],
-        playerLookup: Record<string, any>
+        rostersData: RosterData[],
+        usersData: UserData[],
+        playerLookup: Record<string, FantasyPlayer>
     ): Promise<{
         weekResults: SimulationResult[];
         playoffOdds: TeamRecord[];
@@ -281,8 +267,8 @@ export default function PlayoffSimulator({
         const totalSimulations = 1000;
 
         // Initialize team expected win counters
-        rosters.forEach((roster) => {
-            const teamName = getTeamName(roster.roster_id, rosters, users);
+        rostersData.forEach((roster) => {
+            const teamName = getTeamName(roster.roster_id, rostersData, usersData);
             teamExpectedWins[teamName] = 0;
         });
 
@@ -303,7 +289,7 @@ export default function PlayoffSimulator({
                     const result = simulateMatchup(
                         matchup.team1RosterId,
                         matchup.team2RosterId,
-                        rosters,
+                        rostersData,
                         playerLookup
                     );
                     if (result.team1Score > result.team2Score) {
@@ -315,13 +301,13 @@ export default function PlayoffSimulator({
 
                 const team1Name = getTeamName(
                     matchup.team1RosterId,
-                    rosters,
-                    users
+                    rostersData,
+                    usersData
                 );
                 const team2Name = getTeamName(
                     matchup.team2RosterId,
-                    rosters,
-                    users
+                    rostersData,
+                    usersData
                 );
 
                 const team1WinPercentage = (team1Wins / totalSimulations) * 100;
@@ -360,22 +346,20 @@ export default function PlayoffSimulator({
     };
 
     const runSimulation = async () => {
+        if (!rosters || !users || !fantasyPlayers) {
+            setError('League data not loaded');
+            return;
+        }
+
         setIsSimulating(true);
         setError(null);
 
         try {
-            // Fetch all data needed for simulation
-            const [rosters, users, playerLookup] = await Promise.all([
-                fetchRosterData(),
-                fetchUserData(),
-                fetchFantasyPlayerData(),
-            ]);
-
-            // Run the simulation
+            // Run the simulation with passed data
             const results = await runSeasonSimulation(
                 rosters,
                 users,
-                playerLookup
+                fantasyPlayers
             );
             setSimulationResults(results);
         } catch (err) {

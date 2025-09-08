@@ -8,12 +8,36 @@ interface Matchup {
     players: string[];
 }
 
+interface RosterData {
+    roster_id: number;
+    players: string[];
+    owner_id: string;
+}
+
+interface UserData {
+    user_id: string;
+    display_name: string;
+    metadata: {
+        team_name: string;
+    };
+}
+
+interface FantasyPlayer {
+    Name: string;
+    Position: string;
+    'Projected Points': number;
+    ID: string;
+}
+
 interface ScheduleProps {
     leagueId: string;
     week: number;
+    rosters: RosterData[] | null;
+    users: UserData[] | null;
+    fantasyPlayers: Record<string, FantasyPlayer>;
 }
 
-export default function Schedule({ leagueId, week }: ScheduleProps) {
+export default function Schedule({ leagueId, week, rosters, users, fantasyPlayers }: ScheduleProps) {
     const [matchups, setMatchups] = useState<Matchup[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
@@ -197,10 +221,12 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                                         </span>
                                     </div>
                                     <Roster
-                                        leagueId={leagueId}
                                         matchupRoster={matchup.rosters[0]}
                                         rosterName={matchup.rosters[0]}
                                         onTotalUpdate={handleRosterTotalUpdate}
+                                        rosters={rosters}
+                                        users={users}
+                                        fantasyPlayers={fantasyPlayers}
                                     />
                                 </div>
 
@@ -215,10 +241,12 @@ export default function Schedule({ leagueId, week }: ScheduleProps) {
                                         </span>
                                     </div>
                                     <Roster
-                                        leagueId={leagueId}
                                         matchupRoster={matchup.rosters[1]}
                                         rosterName={matchup.rosters[1]}
                                         onTotalUpdate={handleRosterTotalUpdate}
+                                        rosters={rosters}
+                                        users={users}
+                                        fantasyPlayers={fantasyPlayers}
                                     />
                                 </div>
                             </div>
