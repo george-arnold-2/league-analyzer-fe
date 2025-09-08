@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.2",
     "@tailwindcss/vite": "^4.1.12",
     "lucide-react": "^0.542.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "supabase": "^2.39.2",
     "tailwindcss": "^4.1.12"
   },
   "devDependencies": {

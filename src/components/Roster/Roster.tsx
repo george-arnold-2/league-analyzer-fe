@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { API_ENDPOINTS } from '../../config/api';
+import { supabase } from '../../config/supabaseClient';
 
 interface RosterData {
     roster_id: number;
@@ -105,7 +105,8 @@ export default function Roster({
                 if (!res.ok) throw new Error('Rosters not found');
                 const data = (await res.json()) as RosterData[];
                 setRosterData(data);
-                // console.log(data, 'roster data');
+
+                console.log(data, 'roster data');
             } catch (err) {
                 const msg =
                     err instanceof Error ? err.message : 'Unknown error';
@@ -126,7 +127,7 @@ export default function Roster({
                 if (!res.ok) throw new Error('Users not found');
                 const data = (await res.json()) as UserData[];
                 setUserData(data);
-                console.log(data, 'userData');
+                // console.log(data, 'userData');
             } catch (err) {
                 const msg =
                     err instanceof Error ? err.message : 'Unknown error';
@@ -146,10 +147,13 @@ export default function Roster({
             setError(null);
 
             try {
-                const res = await fetch(API_ENDPOINTS.players);
-                if (!res.ok)
-                    throw new Error(`Error fetching players: ${res.status}`);
-                const allFantasyPlayers: FantasyPlayer[] = await res.json();
+                const { data: allFantasyPlayers, error } = await supabase
+                    .from('fantasy_data')
+                    .select('*');
+
+                if (error) {
+                    throw new Error(`Error fetching players: ${error.message}`);
+                }
 
                 const lookup = allFantasyPlayers.reduce<
                     Record<string, FantasyPlayer>
@@ -174,15 +178,19 @@ export default function Roster({
 
     // Generate random projections once when fantasy data is loaded
     useEffect(() => {
+        // console.log('Generating player projections...');
+        // console.log(rosterData, fantasyPlayerLookup);
         if (
             rosterData &&
             fantasyPlayerLookup &&
             Object.keys(fantasyPlayerLookup).length > 0
         ) {
             const projections: Record<string, number> = {};
+            console.log('Generating playerdata');
 
             rosterData.forEach((roster) => {
                 roster.players.forEach((playerId) => {
+                    console.log(playerId, 'playerId');
                     if (!projections[playerId]) {
                         const fantasyPlayer = fantasyPlayerLookup[playerId];
                         const base = fantasyPlayer

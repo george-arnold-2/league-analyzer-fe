@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_ENDPOINTS } from '../../config/api';
+import { supabase } from '../../config/supabaseClient.js';
 
 // Types for simulation data
 interface SimulationResult {
@@ -27,49 +27,68 @@ interface PlayoffSimulatorProps {
     currentWeek: number;
 }
 
-export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimulatorProps) {
+export default function PlayoffSimulator({
+    leagueId,
+    currentWeek,
+}: PlayoffSimulatorProps) {
     const [isSimulating, setIsSimulating] = useState(false);
     const [simulationResults, setSimulationResults] = useState<{
         weekResults: SimulationResult[];
         playoffOdds: TeamRecord[];
     } | null>(null);
     const [error, setError] = useState<string | null>(null);
-    
+
     // State removed - data is fetched directly in simulation function
 
     // Fetch roster data from Sleeper API
     const fetchRosterData = async () => {
-        const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`);
+        const res = await fetch(
+            `https://api.sleeper.app/v1/league/${leagueId}/rosters`
+        );
         const data = await res.json();
         return data;
     };
 
     // Fetch user data from Sleeper API
     const fetchUserData = async () => {
-        const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`);
+        const res = await fetch(
+            `https://api.sleeper.app/v1/league/${leagueId}/users`
+        );
         const data = await res.json();
         return data;
     };
 
     // Fetch fantasy player data
     const fetchFantasyPlayerData = async () => {
-        const res = await fetch(API_ENDPOINTS.players);
-        const allFantasyPlayers = await res.json();
-        
-        const lookup = allFantasyPlayers.reduce((acc: any, player: any) => {
-            acc[player.ID] = player;
-            return acc;
-        }, {});
-        
+        const { data: allFantasyPlayers, error } = await supabase
+            .from('players')
+            .select('*');
+
+        if (error) {
+            throw new Error(`Error fetching players: ${error.message}`);
+        }
+
+        const lookup = (allFantasyPlayers || []).reduce(
+            (acc: any, player: any) => {
+                acc[player.ID] = player;
+                return acc;
+            },
+            {}
+        );
+
         return lookup;
     };
 
     // Get team name from roster ID
-    const getTeamName = (rosterId: number, rosters: any[], users: any[]): string => {
-        const roster = rosters.find(r => r.roster_id === rosterId);
+    const getTeamName = (
+        rosterId: number,
+        rosters: any[],
+        users: any[]
+    ): string => {
+        const roster = rosters.find((r) => r.roster_id === rosterId);
         if (!roster) return `Team ${rosterId}`;
-        
-        const user = users.find(u => u.user_id === roster.owner_id);
+
+        const user = users.find((u) => u.user_id === roster.owner_id);
         return user ? user.display_name : `Team ${rosterId}`;
     };
 
@@ -95,10 +114,13 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
     };
 
     // Get starting lineup (similar to existing Roster component logic)
-    const getStartingLineup = (playerIds: string[], playerLookup: Record<string, any>) => {
+    const getStartingLineup = (
+        playerIds: string[],
+        playerLookup: Record<string, any>
+    ) => {
         const positionOrder = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'DEF', 'K'];
-        
-        const playersWithProjections = playerIds.map(playerId => {
+
+        const playersWithProjections = playerIds.map((playerId) => {
             const fantasyPlayer = playerLookup[playerId];
             return {
                 playerId,
@@ -108,18 +130,25 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
         });
 
         // Group by position
-        const playersByPosition = playersWithProjections.reduce((acc, player) => {
-            const pos = player.position;
-            if (!acc[pos]) acc[pos] = [];
-            acc[pos].push(player);
-            return acc;
-        }, {} as Record<string, typeof playersWithProjections>);
+        const playersByPosition = playersWithProjections.reduce(
+            (acc, player) => {
+                const pos = player.position;
+                if (!acc[pos]) acc[pos] = [];
+                acc[pos].push(player);
+                return acc;
+            },
+            {} as Record<string, typeof playersWithProjections>
+        );
 
         // Sort each position by base projection
-        Object.keys(playersByPosition).forEach(pos => {
+        Object.keys(playersByPosition).forEach((pos) => {
             playersByPosition[pos].sort((a, b) => {
-                const aProj = a.fantasyPlayer ? a.fantasyPlayer['Projected Points'] : 0;
-                const bProj = b.fantasyPlayer ? b.fantasyPlayer['Projected Points'] : 0;
+                const aProj = a.fantasyPlayer
+                    ? a.fantasyPlayer['Projected Points']
+                    : 0;
+                const bProj = b.fantasyPlayer
+                    ? b.fantasyPlayer['Projected Points']
+                    : 0;
                 return bProj - aProj;
             });
         });
@@ -128,7 +157,7 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
         const startingLineup: typeof playersWithProjections = [];
         const positionCounts: Record<string, number> = {};
 
-        positionOrder.forEach(pos => {
+        positionOrder.forEach((pos) => {
             const count = positionCounts[pos] || 0;
             positionCounts[pos] = count + 1;
 
@@ -141,45 +170,68 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
     };
 
     // Calculate team score using random projections
-    const calculateTeamScore = (playerIds: string[], playerLookup: Record<string, any>): number => {
+    const calculateTeamScore = (
+        playerIds: string[],
+        playerLookup: Record<string, any>
+    ): number => {
         const startingLineup = getStartingLineup(playerIds, playerLookup);
         return startingLineup.reduce((total, player) => {
-            const baseProjection = player.fantasyPlayer ? player.fantasyPlayer['Projected Points'] / 17 : 0;
+            const baseProjection = player.fantasyPlayer
+                ? player.fantasyPlayer['Projected Points'] / 17
+                : 0;
             const randomProjection = getRandomProjection(baseProjection);
             return total + parseFloat(randomProjection);
         }, 0);
     };
 
     // Simulate a single matchup using random projections
-    const simulateMatchup = (team1RosterId: number, team2RosterId: number, rosters: any[], playerLookup: Record<string, any>): { team1Score: number, team2Score: number } => {
-        const team1Roster = rosters.find(r => r.roster_id === team1RosterId);
-        const team2Roster = rosters.find(r => r.roster_id === team2RosterId);
+    const simulateMatchup = (
+        team1RosterId: number,
+        team2RosterId: number,
+        rosters: any[],
+        playerLookup: Record<string, any>
+    ): { team1Score: number; team2Score: number } => {
+        const team1Roster = rosters.find((r) => r.roster_id === team1RosterId);
+        const team2Roster = rosters.find((r) => r.roster_id === team2RosterId);
 
-        const team1Score = calculateTeamScore(team1Roster?.players || [], playerLookup);
-        const team2Score = calculateTeamScore(team2Roster?.players || [], playerLookup);
+        const team1Score = calculateTeamScore(
+            team1Roster?.players || [],
+            playerLookup
+        );
+        const team2Score = calculateTeamScore(
+            team2Roster?.players || [],
+            playerLookup
+        );
 
         return { team1Score, team2Score };
     };
 
     // Get matchups for a specific week
-    const getMatchupsForWeek = async (week: number): Promise<Array<{ team1RosterId: number, team2RosterId: number }>> => {
+    const getMatchupsForWeek = async (
+        week: number
+    ): Promise<Array<{ team1RosterId: number; team2RosterId: number }>> => {
         try {
-            const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`);
+            const res = await fetch(
+                `https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`
+            );
             const matchups = await res.json();
 
             // Group matchups by matchup_id
-            const groupedMatchups = matchups.reduce((acc: any, matchup: any) => {
-                if (!acc[matchup.matchup_id]) {
-                    acc[matchup.matchup_id] = [];
-                }
-                acc[matchup.matchup_id].push(matchup);
-                return acc;
-            }, {});
+            const groupedMatchups = matchups.reduce(
+                (acc: any, matchup: any) => {
+                    if (!acc[matchup.matchup_id]) {
+                        acc[matchup.matchup_id] = [];
+                    }
+                    acc[matchup.matchup_id].push(matchup);
+                    return acc;
+                },
+                {}
+            );
 
             // Convert to team pairs
             return Object.values(groupedMatchups).map((matchupPair: any) => ({
                 team1RosterId: matchupPair[0].roster_id,
-                team2RosterId: matchupPair[1].roster_id
+                team2RosterId: matchupPair[1].roster_id,
             }));
         } catch (error) {
             console.error(`Error fetching matchups for week ${week}:`, error);
@@ -188,21 +240,26 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
     };
 
     // Probabilistic playoff odds calculation based on expected wins
-    const calculatePlayoffOdds = (expectedWins: number, allTeamExpectedWins: Record<string, number>): number => {
-        const sortedExpectedWins = Object.values(allTeamExpectedWins).sort((a, b) => b - a);
+    const calculatePlayoffOdds = (
+        expectedWins: number,
+        allTeamExpectedWins: Record<string, number>
+    ): number => {
+        const sortedExpectedWins = Object.values(allTeamExpectedWins).sort(
+            (a, b) => b - a
+        );
         const rank = sortedExpectedWins.indexOf(expectedWins) + 1;
-        
+
         // Calculate odds based on expected wins and ranking
         // Teams with more expected wins have higher playoff odds
         const maxExpectedWins = Math.max(...sortedExpectedWins);
         const minExpectedWins = Math.min(...sortedExpectedWins);
         const range = maxExpectedWins - minExpectedWins;
-        
+
         if (range === 0) return 50; // All teams equal
-        
+
         // Normalize expected wins to 0-100 scale, with top 6 teams having higher base odds
         const normalizedScore = (expectedWins - minExpectedWins) / range;
-        
+
         if (rank <= 6) {
             return Math.min(95, 60 + normalizedScore * 35);
         } else {
@@ -211,13 +268,20 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
     };
 
     // Main simulation function using probabilistic approach
-    const runSeasonSimulation = async (rosters: any[], users: any[], playerLookup: Record<string, any>): Promise<{ weekResults: SimulationResult[], playoffOdds: TeamRecord[] }> => {
+    const runSeasonSimulation = async (
+        rosters: any[],
+        users: any[],
+        playerLookup: Record<string, any>
+    ): Promise<{
+        weekResults: SimulationResult[];
+        playoffOdds: TeamRecord[];
+    }> => {
         const weekResults: SimulationResult[] = [];
         const teamExpectedWins: Record<string, number> = {};
         const totalSimulations = 1000;
 
         // Initialize team expected win counters
-        rosters.forEach(roster => {
+        rosters.forEach((roster) => {
             const teamName = getTeamName(roster.roster_id, rosters, users);
             teamExpectedWins[teamName] = 0;
         });
@@ -227,7 +291,7 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
             const matchups = await getMatchupsForWeek(week);
             const weekResult: SimulationResult = {
                 week,
-                matchups: []
+                matchups: [],
             };
 
             // For each matchup, run 1000 simulations
@@ -236,7 +300,12 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
                 let team2Wins = 0;
 
                 for (let sim = 0; sim < totalSimulations; sim++) {
-                    const result = simulateMatchup(matchup.team1RosterId, matchup.team2RosterId, rosters, playerLookup);
+                    const result = simulateMatchup(
+                        matchup.team1RosterId,
+                        matchup.team2RosterId,
+                        rosters,
+                        playerLookup
+                    );
                     if (result.team1Score > result.team2Score) {
                         team1Wins++;
                     } else {
@@ -244,9 +313,17 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
                     }
                 }
 
-                const team1Name = getTeamName(matchup.team1RosterId, rosters, users);
-                const team2Name = getTeamName(matchup.team2RosterId, rosters, users);
-                
+                const team1Name = getTeamName(
+                    matchup.team1RosterId,
+                    rosters,
+                    users
+                );
+                const team2Name = getTeamName(
+                    matchup.team2RosterId,
+                    rosters,
+                    users
+                );
+
                 const team1WinPercentage = (team1Wins / totalSimulations) * 100;
                 const team2WinPercentage = (team2Wins / totalSimulations) * 100;
 
@@ -256,7 +333,7 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
                     team1Wins,
                     team2Wins,
                     team1WinPercentage,
-                    team2WinPercentage
+                    team2WinPercentage,
                 });
 
                 // Add expected wins based on win probability (not binary outcome)
@@ -268,11 +345,16 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
         }
 
         // Calculate playoff odds based on expected wins
-        const playoffOdds = Object.entries(teamExpectedWins).map(([teamName, expectedWins]) => ({
-            teamName,
-            expectedWins,
-            playoffOdds: calculatePlayoffOdds(expectedWins, teamExpectedWins)
-        })).sort((a, b) => b.expectedWins - a.expectedWins);
+        const playoffOdds = Object.entries(teamExpectedWins)
+            .map(([teamName, expectedWins]) => ({
+                teamName,
+                expectedWins,
+                playoffOdds: calculatePlayoffOdds(
+                    expectedWins,
+                    teamExpectedWins
+                ),
+            }))
+            .sort((a, b) => b.expectedWins - a.expectedWins);
 
         return { weekResults, playoffOdds };
     };
@@ -286,11 +368,15 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
             const [rosters, users, playerLookup] = await Promise.all([
                 fetchRosterData(),
                 fetchUserData(),
-                fetchFantasyPlayerData()
+                fetchFantasyPlayerData(),
             ]);
 
             // Run the simulation
-            const results = await runSeasonSimulation(rosters, users, playerLookup);
+            const results = await runSeasonSimulation(
+                rosters,
+                users,
+                playerLookup
+            );
             setSimulationResults(results);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Simulation failed');
@@ -302,9 +388,12 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
     return (
         <div className="bg-white rounded-xl shadow-xl p-6">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Playoff Simulator</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    Playoff Simulator
+                </h2>
                 <p className="text-gray-600">
-                    Run 1000 simulations for each remaining week to calculate playoff odds
+                    Run 1000 simulations for each remaining week to calculate
+                    playoff odds
                 </p>
             </div>
 
@@ -339,34 +428,70 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
                 <div className="space-y-6">
                     {/* Playoff Odds Table */}
                     <div>
-                        <h3 className="text-xl font-semibold mb-4">Playoff Odds</h3>
+                        <h3 className="text-xl font-semibold mb-4">
+                            Playoff Odds
+                        </h3>
                         <div className="overflow-x-auto">
                             <table className="min-w-full bg-white border border-gray-200 rounded-lg">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Rank</th>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Team</th>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Expected Wins</th>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Playoff Odds</th>
+                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">
+                                            Rank
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">
+                                            Team
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">
+                                            Expected Wins
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">
+                                            Playoff Odds
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {simulationResults.playoffOdds.map((team, index) => (
-                                        <tr key={team.teamName} className={index < 6 ? 'bg-green-50' : ''}>
-                                            <td className="px-4 py-3 text-sm text-gray-900">{index + 1}</td>
-                                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{team.teamName}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-900">{team.expectedWins.toFixed(1)}</td>
-                                            <td className="px-4 py-3 text-sm">
-                                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                                    team.playoffOdds >= 70 ? 'bg-green-100 text-green-800' :
-                                                    team.playoffOdds >= 30 ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
-                                                }`}>
-                                                    {team.playoffOdds.toFixed(1)}%
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {simulationResults.playoffOdds.map(
+                                        (team, index) => (
+                                            <tr
+                                                key={team.teamName}
+                                                className={
+                                                    index < 6
+                                                        ? 'bg-green-50'
+                                                        : ''
+                                                }
+                                            >
+                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                    {team.teamName}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                    {team.expectedWins.toFixed(
+                                                        1
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm">
+                                                    <span
+                                                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                                            team.playoffOdds >=
+                                                            70
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : team.playoffOdds >=
+                                                                  30
+                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                : 'bg-red-100 text-red-800'
+                                                        }`}
+                                                    >
+                                                        {team.playoffOdds.toFixed(
+                                                            1
+                                                        )}
+                                                        %
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        )
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -374,33 +499,67 @@ export default function PlayoffSimulator({ leagueId, currentWeek }: PlayoffSimul
 
                     {/* Weekly Matchup Predictions */}
                     <div>
-                        <h3 className="text-xl font-semibold mb-4">Weekly Matchup Predictions</h3>
+                        <h3 className="text-xl font-semibold mb-4">
+                            Weekly Matchup Predictions
+                        </h3>
                         <div className="space-y-4">
-                            {simulationResults.weekResults.map(weekResult => (
-                                <div key={weekResult.week} className="border border-gray-200 rounded-lg p-4">
-                                    <h4 className="font-semibold mb-3">Week {weekResult.week}</h4>
+                            {simulationResults.weekResults.map((weekResult) => (
+                                <div
+                                    key={weekResult.week}
+                                    className="border border-gray-200 rounded-lg p-4"
+                                >
+                                    <h4 className="font-semibold mb-3">
+                                        Week {weekResult.week}
+                                    </h4>
                                     <div className="grid gap-3">
-                                        {weekResult.matchups.map((matchup, index) => (
-                                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                                                <div className="flex items-center space-x-4">
-                                                    <span className="font-medium">{matchup.team1}</span>
-                                                    <span className="text-gray-500">vs</span>
-                                                    <span className="font-medium">{matchup.team2}</span>
+                                        {weekResult.matchups.map(
+                                            (matchup, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="flex items-center justify-between p-3 bg-gray-50 rounded"
+                                                >
+                                                    <div className="flex items-center space-x-4">
+                                                        <span className="font-medium">
+                                                            {matchup.team1}
+                                                        </span>
+                                                        <span className="text-gray-500">
+                                                            vs
+                                                        </span>
+                                                        <span className="font-medium">
+                                                            {matchup.team2}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-4 text-sm">
+                                                        <span
+                                                            className={`px-2 py-1 rounded ${
+                                                                matchup.team1WinPercentage >
+                                                                50
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : 'bg-red-100 text-red-800'
+                                                            }`}
+                                                        >
+                                                            {matchup.team1WinPercentage.toFixed(
+                                                                1
+                                                            )}
+                                                            %
+                                                        </span>
+                                                        <span
+                                                            className={`px-2 py-1 rounded ${
+                                                                matchup.team2WinPercentage >
+                                                                50
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : 'bg-red-100 text-red-800'
+                                                            }`}
+                                                        >
+                                                            {matchup.team2WinPercentage.toFixed(
+                                                                1
+                                                            )}
+                                                            %
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center space-x-4 text-sm">
-                                                    <span className={`px-2 py-1 rounded ${
-                                                        matchup.team1WinPercentage > 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {matchup.team1WinPercentage.toFixed(1)}%
-                                                    </span>
-                                                    <span className={`px-2 py-1 rounded ${
-                                                        matchup.team2WinPercentage > 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {matchup.team2WinPercentage.toFixed(1)}%
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            )
+                                        )}
                                     </div>
                                 </div>
                             ))}
