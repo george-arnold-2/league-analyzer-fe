@@ -1,2 +1,0 @@
-GET https://api.sleeper.app/v1/players/nfl
-

@@ -91,7 +91,6 @@ export default function Roster({
         Record<string, number>
     >({});
 
-
     // Generate random projections once when fantasy data is loaded
     useEffect(() => {
         if (
@@ -251,7 +250,6 @@ export default function Roster({
 
     return (
         <div className="w-full">
-
             {rosters &&
                 rosters.map((roster, i) => {
                     const matchupRosterNumber = Number(
