@@ -195,36 +195,40 @@ export default function PlayoffMaps({
     // Calculate playoff odds based on final win total and league competition
     const calculatePlayoffOdds = (finalWins: number): number => {
         if (!owners.length) return 0;
-        
+
         // Calculate remaining weeks in season
         const remainingWeeks = 18 - currentWeek; // Assuming 18 week season
-        
+
         // Estimate how many teams will finish with fewer wins than finalWins
         // This is a simplified model - in reality we'd simulate all remaining games
         let teamsWithFewerWins = 0;
-        
-        owners.forEach(owner => {
+
+        owners.forEach((owner) => {
             if (owner.roster_id === selectedOwner?.roster_id) return; // Skip selected owner
-            
+
             // Estimate this team's final wins (current wins + expected wins from remaining games)
             const currentWins = owner.wins;
             const expectedAdditionalWins = remainingWeeks * 0.5; // Assume 50% win rate
             const estimatedFinalWins = currentWins + expectedAdditionalWins;
-            
+
             if (estimatedFinalWins < finalWins) {
                 teamsWithFewerWins++;
             }
         });
-        
+
         // Playoff spots (typically 6 teams make playoffs in 12-team league)
         const playoffSpots = Math.ceil(owners.length / 2);
-        
+
         // If this team would rank in top playoff spots, calculate probability
         if (teamsWithFewerWins >= owners.length - playoffSpots) {
-            return Math.min(95, 60 + (teamsWithFewerWins - (owners.length - playoffSpots)) * 10);
+            return Math.min(
+                95,
+                60 + (teamsWithFewerWins - (owners.length - playoffSpots)) * 10
+            );
         } else {
             // Lower probability based on how far from playoff cutoff
-            const spotsFromPlayoffs = (owners.length - playoffSpots) - teamsWithFewerWins;
+            const spotsFromPlayoffs =
+                owners.length - playoffSpots - teamsWithFewerWins;
             return Math.max(1, 40 - spotsFromPlayoffs * 15);
         }
     };
@@ -284,14 +288,18 @@ export default function PlayoffMaps({
                             {selectedOwner.display_name}
                         </h3>
                         <p className="text-gray-600">
-                            Current Record: {selectedOwner.wins}-{selectedOwner.losses} (Week {currentWeek})
+                            Current Record: {selectedOwner.wins}-
+                            {selectedOwner.losses} (Week {currentWeek})
                         </p>
                         <p className="text-sm text-gray-500 mt-1">
-                            {selectedOwner.wins >= 10 
-                                ? "Strong playoff position" 
-                                : selectedOwner.wins >= 7 
-                                ? "In playoff contention" 
-                                : `Need ${Math.max(0, 8 - selectedOwner.wins)} more wins for playoff safety`}
+                            {selectedOwner.wins >= 10
+                                ? 'Strong playoff position'
+                                : selectedOwner.wins >= 7
+                                ? 'In playoff contention'
+                                : `Need ${Math.max(
+                                      0,
+                                      8 - selectedOwner.wins
+                                  )} more wins for playoff contention`}
                         </p>
                     </div>
 
