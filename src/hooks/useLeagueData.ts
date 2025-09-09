@@ -18,7 +18,7 @@ interface UserData {
 interface FantasyPlayer {
     Name: string;
     Position: string;
-    'Projected Points': number;
+    projected_points: number;
     ID: string;
 }
 
@@ -26,7 +26,7 @@ interface SupabasePlayer {
     name: string;
     position: string;
     projected_points: number;
-    player_id: string;
+    player_id: string | number;
 }
 
 interface LeagueData {
@@ -62,6 +62,25 @@ export function useLeagueData(leagueId: string): LeagueData {
             try {
                 // Fetch all data in parallel
 
+                // Query for Brock Bowers by name to see what ID he has in Supabase
+                const brockBowersQuery = await supabase
+                    .from('fantasy_data')
+                    .select('*')
+                    .ilike('name', '%Brock Bowers%');
+
+                console.log('Brock Bowers specific query:', brockBowersQuery);
+
+                // Also check a few sample players to understand the ID pattern
+                // const samplePlayersQuery = await supabase
+                //     .from('fantasy_data')
+                //     .select('player_id, name, position')
+                //     .limit(40);
+
+                // console.log(
+                //     'Sample players from Supabase:',
+                //     samplePlayersQuery
+                // );
+
                 const [rostersRes, usersRes, fantasyData] = await Promise.all([
                     fetch(
                         `https://api.sleeper.app/v1/league/${leagueId}/rosters`
@@ -76,6 +95,7 @@ export function useLeagueData(leagueId: string): LeagueData {
                 console.log('rostersRes', rostersRes);
                 console.log('usersRes', usersRes);
                 console.log('fantasyData', fantasyData);
+                console.log('fantasyData', fantasyData.data);
 
                 // Handle rosters
                 if (!rostersRes.ok) throw new Error('Failed to fetch rosters');
@@ -97,15 +117,44 @@ export function useLeagueData(leagueId: string): LeagueData {
                 const fantasyLookup = (fantasyData.data || []).reduce<
                     Record<string, FantasyPlayer>
                 >((acc, player: SupabasePlayer) => {
+                    // Convert player_id to string to ensure consistent lookup
+                    const playerIdString = String(player.player_id);
+                    console.log(playerIdString, 'playerIdString');
                     // Transform Supabase column names to expected format
-                    acc[player.player_id] = {
-                        ID: player.player_id,
+                    acc[playerIdString] = {
+                        ID: playerIdString,
                         Name: player.name,
                         Position: player.position,
-                        'Projected Points': player.projected_points,
+                        projected_points: player.projected_points,
                     };
+
+                    // Debug Brock Bowers specifically
+                    if (
+                        playerIdString === '11604' ||
+                        player.name.includes('Brock Bowers')
+                    ) {
+                        console.log('Found Brock Bowers in Supabase:', {
+                            original_player_id: player.player_id,
+                            converted_player_id: playerIdString,
+                            name: player.name,
+                            projected_points: player.projected_points,
+                            transformedData: acc[playerIdString],
+                        });
+                    }
+
                     return acc;
                 }, {});
+
+                console.log(
+                    'Fantasy lookup created with',
+                    Object.keys(fantasyLookup).length,
+                    'players'
+                );
+                console.log(
+                    'Sample player IDs:',
+                    Object.keys(fantasyLookup).slice(0, 10)
+                );
+
                 setFantasyPlayers(fantasyLookup);
             } catch (err) {
                 const message =

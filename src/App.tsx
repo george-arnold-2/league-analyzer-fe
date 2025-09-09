@@ -7,13 +7,19 @@ import { useLeagueData } from './hooks/useLeagueData';
 
 export default function App(): React.JSX.Element {
     const [leagueId, setLeagueId] = useState<string>('');
-    const [week, setWeek] = useState<number>(1);
+    const [week, setWeek] = useState<number>(2);
     const [activeTab, setActiveTab] = useState<
         'schedule' | 'playoffs' | 'maps'
     >('schedule');
 
     // Fetch shared league data once at the app level
-    const { rosters, users, fantasyPlayers, loading: leagueDataLoading, error: leagueDataError } = useLeagueData(leagueId);
+    const {
+        rosters,
+        users,
+        fantasyPlayers,
+        loading: leagueDataLoading,
+        error: leagueDataError,
+    } = useLeagueData(leagueId);
 
     // Load saved values if they exist
     useEffect(() => {
@@ -80,7 +86,6 @@ export default function App(): React.JSX.Element {
                     />
                 </div>
 
-
                 {/* Navigation Tabs */}
                 {leagueId && (
                     <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-6 max-w-2xl mx-auto">
@@ -132,6 +137,7 @@ export default function App(): React.JSX.Element {
                                         onChange={(e) =>
                                             setWeek(Number(e.target.value))
                                         }
+                                        defaultValue={week}
                                         className="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
                                         placeholder="Enter week number"
                                     />
@@ -171,12 +177,14 @@ export default function App(): React.JSX.Element {
                         ) : leagueDataError ? (
                             <div className="p-6">
                                 <div className="bg-red-50 border-l-4 border-red-400 p-4">
-                                    <p className="text-red-700">{leagueDataError}</p>
+                                    <p className="text-red-700">
+                                        {leagueDataError}
+                                    </p>
                                 </div>
                             </div>
                         ) : activeTab === 'schedule' ? (
-                            <Schedule 
-                                leagueId={leagueId} 
+                            <Schedule
+                                leagueId={leagueId}
                                 week={week}
                                 rosters={rosters}
                                 users={users}

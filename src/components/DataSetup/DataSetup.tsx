@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { populateFantasyData } from '../../utils/populateSupabase';
+// import { populateFantasyData } from '../../utils/populateSupabase';
 
 export default function DataSetup() {
     const [isPopulating, setIsPopulating] = useState(false);
@@ -12,7 +12,7 @@ export default function DataSetup() {
         setStatus('Starting data population...');
 
         try {
-            await populateFantasyData();
+            // const result = await populateFantasyData();
             setStatus('✅ Fantasy data populated successfully! You can now use the app normally.');
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Unknown error';

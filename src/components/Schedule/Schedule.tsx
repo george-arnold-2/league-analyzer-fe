@@ -25,7 +25,7 @@ interface UserData {
 interface FantasyPlayer {
     Name: string;
     Position: string;
-    'Projected Points': number;
+    projected_points: number;
     ID: string;
 }
 
@@ -37,7 +37,13 @@ interface ScheduleProps {
     fantasyPlayers: Record<string, FantasyPlayer>;
 }
 
-export default function Schedule({ leagueId, week, rosters, users, fantasyPlayers }: ScheduleProps) {
+export default function Schedule({
+    leagueId,
+    week,
+    rosters,
+    users,
+    fantasyPlayers,
+}: ScheduleProps) {
     const [matchups, setMatchups] = useState<Matchup[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
@@ -213,6 +219,7 @@ export default function Schedule({ leagueId, week, rosters, users, fantasyPlayer
                                             id="matchup-total"
                                             className="text-lg font-bold text-green-600"
                                         >
+                                            Projected Total:{' '}
                                             {rosterTotals[matchup.rosters[0]]
                                                 ? `${rosterTotals[
                                                       matchup.rosters[0]
@@ -233,6 +240,7 @@ export default function Schedule({ leagueId, week, rosters, users, fantasyPlayer
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <span className="text-lg font-bold text-green-600">
+                                            Projected Total:{' '}
                                             {rosterTotals[matchup.rosters[1]]
                                                 ? `${rosterTotals[
                                                       matchup.rosters[1]

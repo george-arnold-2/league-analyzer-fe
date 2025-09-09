@@ -25,6 +25,10 @@ interface RosterData {
     roster_id: number;
     players: string[];
     owner_id: string;
+    settings?: {
+        wins: number;
+        losses: number;
+    };
 }
 
 interface UserData {
@@ -38,7 +42,7 @@ interface UserData {
 interface FantasyPlayer {
     Name: string;
     Position: string;
-    'Projected Points': number;
+    projected_points: number;
     ID: string;
 }
 
@@ -130,10 +134,10 @@ export default function PlayoffSimulator({
         Object.keys(playersByPosition).forEach((pos) => {
             playersByPosition[pos].sort((a, b) => {
                 const aProj = a.fantasyPlayer
-                    ? a.fantasyPlayer['Projected Points']
+                    ? fantasyPlayers[a.playerId].projected_points / 17
                     : 0;
                 const bProj = b.fantasyPlayer
-                    ? b.fantasyPlayer['Projected Points']
+                    ? b.fantasyPlayer.projected_points / 17
                     : 0;
                 return bProj - aProj;
             });
@@ -163,7 +167,7 @@ export default function PlayoffSimulator({
         const startingLineup = getStartingLineup(playerIds, playerLookup);
         return startingLineup.reduce((total, player) => {
             const baseProjection = player.fantasyPlayer
-                ? player.fantasyPlayer['Projected Points'] / 17
+                ? player.fantasyPlayer.projected_points / 17
                 : 0;
             const randomProjection = getRandomProjection(baseProjection);
             return total + parseFloat(randomProjection);
@@ -266,10 +270,11 @@ export default function PlayoffSimulator({
         const teamExpectedWins: Record<string, number> = {};
         const totalSimulations = 1000;
 
-        // Initialize team expected win counters
+        // Initialize team expected win counters with current wins
         rostersData.forEach((roster) => {
             const teamName = getTeamName(roster.roster_id, rostersData, usersData);
-            teamExpectedWins[teamName] = 0;
+            const currentWins = roster.settings?.wins || 0;
+            teamExpectedWins[teamName] = currentWins;
         });
 
         // Run simulations for each remaining week

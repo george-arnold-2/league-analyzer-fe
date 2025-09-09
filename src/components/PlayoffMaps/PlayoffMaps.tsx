@@ -4,6 +4,8 @@ interface Owner {
     user_id: string;
     display_name: string;
     roster_id: number;
+    wins: number;
+    losses: number;
 }
 
 interface Matchup {
@@ -54,6 +56,8 @@ export default function PlayoffMaps({
                         display_name:
                             user?.display_name || `Team ${roster.roster_id}`,
                         roster_id: roster.roster_id,
+                        wins: roster.settings?.wins || 0,
+                        losses: roster.settings?.losses || 0,
                     };
                 });
 
@@ -134,7 +138,7 @@ export default function PlayoffMaps({
 
         const scenarios = [];
         const totalGames = matchups.length;
-        const currentWins = 0; // TODO: Add current wins from API
+        const currentWins = selectedOwner?.wins || 0;
 
         for (
             let additionalWins = 0;
@@ -190,18 +194,39 @@ export default function PlayoffMaps({
 
     // Calculate playoff odds based on final win total and league competition
     const calculatePlayoffOdds = (finalWins: number): number => {
-        // this is an approximation and we will build a more accurate model later
-        // for now, we will use the same logic as the simulator
-        if (finalWins >= 14) return 100;
-        if (finalWins >= 13) return 99.9;
-        if (finalWins >= 12) return 99;
-        if (finalWins >= 11) return 95;
-        if (finalWins >= 10) return 85;
-        if (finalWins >= 9) return 65;
-        if (finalWins >= 8) return 35;
-        if (finalWins >= 7) return 15;
-        if (finalWins >= 6) return 5;
-        return 1;
+        if (!owners.length) return 0;
+        
+        // Calculate remaining weeks in season
+        const remainingWeeks = 18 - currentWeek; // Assuming 18 week season
+        
+        // Estimate how many teams will finish with fewer wins than finalWins
+        // This is a simplified model - in reality we'd simulate all remaining games
+        let teamsWithFewerWins = 0;
+        
+        owners.forEach(owner => {
+            if (owner.roster_id === selectedOwner?.roster_id) return; // Skip selected owner
+            
+            // Estimate this team's final wins (current wins + expected wins from remaining games)
+            const currentWins = owner.wins;
+            const expectedAdditionalWins = remainingWeeks * 0.5; // Assume 50% win rate
+            const estimatedFinalWins = currentWins + expectedAdditionalWins;
+            
+            if (estimatedFinalWins < finalWins) {
+                teamsWithFewerWins++;
+            }
+        });
+        
+        // Playoff spots (typically 6 teams make playoffs in 12-team league)
+        const playoffSpots = Math.ceil(owners.length / 2);
+        
+        // If this team would rank in top playoff spots, calculate probability
+        if (teamsWithFewerWins >= owners.length - playoffSpots) {
+            return Math.min(95, 60 + (teamsWithFewerWins - (owners.length - playoffSpots)) * 10);
+        } else {
+            // Lower probability based on how far from playoff cutoff
+            const spotsFromPlayoffs = (owners.length - playoffSpots) - teamsWithFewerWins;
+            return Math.max(1, 40 - spotsFromPlayoffs * 15);
+        }
     };
 
     const scenarios = calculatePlayoffScenarios();
@@ -259,10 +284,14 @@ export default function PlayoffMaps({
                             {selectedOwner.display_name}
                         </h3>
                         <p className="text-gray-600">
-                            Current Record: 0-0 (Week {currentWeek})
+                            Current Record: {selectedOwner.wins}-{selectedOwner.losses} (Week {currentWeek})
                         </p>
                         <p className="text-sm text-gray-500 mt-1">
-                            Need approximately 7 wins to make playoffs
+                            {selectedOwner.wins >= 10 
+                                ? "Strong playoff position" 
+                                : selectedOwner.wins >= 7 
+                                ? "In playoff contention" 
+                                : `Need ${Math.max(0, 8 - selectedOwner.wins)} more wins for playoff safety`}
                         </p>
                     </div>
 

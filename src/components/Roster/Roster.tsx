@@ -26,7 +26,7 @@ interface RosterProps {
 interface FantasyPlayer {
     Name: string;
     Position: string;
-    'Projected Points': number;
+    projected_points: number;
     ID: string;
 }
 
@@ -98,16 +98,33 @@ export default function Roster({
             fantasyPlayers &&
             Object.keys(fantasyPlayers).length > 0
         ) {
+            // console.log(fantasyPlayers, 'fantasyPlayers');
+
             const projections: Record<string, number> = {};
-            console.log('Generating playerdata');
+            // console.log('Generating playerdata');
 
             rosters.forEach((roster) => {
+                // console.log(roster.players, 'roster in rosters');
                 roster.players.forEach((playerId) => {
-                    console.log(playerId, 'playerId');
                     if (!projections[playerId]) {
+                        // console.log(playerId, 'playerId in projections');
                         const fantasyPlayer = fantasyPlayers[playerId];
+
+                        // Debug specific player
+                        if (playerId === '11604') {
+                            // console.log('Brock Bowers debug:', {
+                            //     playerId,
+                            //     fantasyPlayer,
+                            //     fantasyPlayersKeys: Object.keys(
+                            //         fantasyPlayers
+                            //     ).slice(0, 10),
+                            //     totalFantasyPlayers:
+                            //         Object.keys(fantasyPlayers).length,
+                            // });
+                        }
+
                         const base = fantasyPlayer
-                            ? fantasyPlayer['Projected Points'] / 17
+                            ? fantasyPlayer.projected_points / 17
                             : 0;
                         projections[playerId] = parseFloat(
                             getRandomProjection(base)
@@ -150,6 +167,7 @@ export default function Roster({
                 'RB',
                 'WR',
                 'WR',
+                'WR',
                 'TE',
                 'DEF',
                 'K',
@@ -176,6 +194,7 @@ export default function Roster({
                 },
                 {} as Record<string, typeof playersWithProjections>
             );
+            // console.log(playersByPosition, 'players by position');
 
             // Sort each position by projection (highest first)
             Object.keys(playersByPosition).forEach((pos) => {
@@ -285,6 +304,10 @@ export default function Roster({
                             <div className="p-4">
                                 <div className="space-y-3">
                                     {startingLineup.map((player, index) => {
+                                        // console.log(
+                                        //     player.fantasyPlayer,
+                                        //     'player in lineup'
+                                        // );
                                         return (
                                             <div
                                                 key={`${player.playerId}-${index}`}
